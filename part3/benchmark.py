@@ -15,14 +15,14 @@ def generate_diagonally_dominant_system(size: int):
     Điều này đảm bảo phương pháp lặp Gauss-Seidel sẽ hội tụ.
     """
     matrix_A = [[random.uniform(0, 1) for _ in range(size)] for _ in range(size)]
-    for i in range(size):
-        row_sum = sum(abs(matrix_A[i][j]) for j in range(size) if i != j)
+    for row_index in range(size):
+        row_sum = sum(abs(matrix_A[row_index][col_index]) for col_index in range(size) if row_index != col_index)
         # Gán phần tử đường chéo lớn hơn tổng các phần tử khác trên cùng dòng
-        matrix_A[i][i] = row_sum + random.uniform(1.0, 5.0)
+        matrix_A[row_index][row_index] = row_sum + random.uniform(1.0, 5.0)
         
     # Tạo nghiệm thực x_true ngẫu nhiên và tính vector b tương ứng
     x_true = [random.uniform(-10, 10) for _ in range(size)]
-    vector_b = [sum(matrix_A[i][j] * x_true[j] for j in range(size)) for i in range(size)]
+    vector_b = [sum(matrix_A[row_index][col_index] * x_true[col_index] for col_index in range(size)) for row_index in range(size)]
     
     return matrix_A, vector_b, x_true
 
@@ -53,7 +53,7 @@ def perform_benchmark_analysis():
             run_counts = 3 if size < 500 else 1
             start_time = time.perf_counter()
             
-            for _ in range(run_counts):
+            for run_index in range(run_counts):
                 solution_x = solver_func(matrix_A, vector_b)
                 
             end_time = time.perf_counter()
@@ -75,7 +75,7 @@ def perform_benchmark_analysis():
         
     # Vẽ đường tham chiếu O(n^3) - Độ phức tạp lý thuyết của Gauss/QR
     reference_scale = execution_times["Gauss Elimination"][0] / (matrix_sizes[0]**3)
-    theoretical_complexity = [reference_scale * (n**3) for n in matrix_sizes]
+    theoretical_complexity = [reference_scale * (size_val**3) for size_val in matrix_sizes]
     plt.plot(matrix_sizes, theoretical_complexity, color='black', linestyle='--', label='Lý thuyết $O(n^3)$')
     
     plt.xscale('log')

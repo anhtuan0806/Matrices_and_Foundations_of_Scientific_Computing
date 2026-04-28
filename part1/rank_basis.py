@@ -20,23 +20,23 @@ def calculate_rank_and_bases(matrix_A: List[List[float]]) -> Tuple[int, List[Lis
     # Xác định các cột chốt (pivot columns)
     pivot_columns = []
     current_pivot_row = 0
-    for j in range(cols_count):
-        if current_pivot_row < rows_count and abs(upper_matrix_U[current_pivot_row][j]) > EPSILON:
-            pivot_columns.append(j)
+    for col_index in range(cols_count):
+        if current_pivot_row < rows_count and abs(upper_matrix_U[current_pivot_row][col_index]) > EPSILON:
+            pivot_columns.append(col_index)
             current_pivot_row += 1
             
     # 1. Hạng của ma trận
     rank_value = len(pivot_columns)
     
     # 2. Cơ sở không gian dòng: Các dòng khác 0 trong REF
-    row_space_basis = [upper_matrix_U[i][:] for i in range(rank_value)]
+    row_space_basis = [upper_matrix_U[row_index][:] for row_index in range(rank_value)]
     
     # 3. Cơ sở không gian cột: Các cột tương ứng trong ma trận gốc A
-    column_space_basis = [[matrix_A[i][j] for i in range(rows_count)] for j in pivot_columns]
+    column_space_basis = [[matrix_A[row_index][col_index] for row_index in range(rows_count)] for col_index in pivot_columns]
     
     # 4. Cơ sở không gian nghiệm: Giải hệ thuần nhất Ax = 0
     # Các ẩn không phải ẩn chốt được coi là ẩn tự do
-    free_columns = [j for j in range(cols_count) if j not in pivot_columns]
+    free_columns = [col_index for col_index in range(cols_count) if col_index not in pivot_columns]
     null_space_basis = []
     
     for free_idx in free_columns:
@@ -45,11 +45,11 @@ def calculate_rank_and_bases(matrix_A: List[List[float]]) -> Tuple[int, List[Lis
         solution_vector[free_idx] = 1.0
         
         # Giải ngược từ dưới lên để tìm giá trị các ẩn chốt theo ẩn tự do này
-        for i in range(rank_value - 1, -1, -1):
-            p_col = pivot_columns[i]
-            # Tính tổng các thành phần đã biết của dòng i
-            known_sum = sum(upper_matrix_U[i][j] * solution_vector[j] for j in range(p_col + 1, cols_count))
-            solution_vector[p_col] = -known_sum / upper_matrix_U[i][p_col]
+        for row_index in range(rank_value - 1, -1, -1):
+            p_col = pivot_columns[row_index]
+            # Tính tổng các thành phần đã biết của dòng row_index
+            known_sum = sum(upper_matrix_U[row_index][col_index] * solution_vector[col_index] for col_index in range(p_col + 1, cols_count))
+            solution_vector[p_col] = -known_sum / upper_matrix_U[row_index][p_col]
             
         null_space_basis.append(solution_vector)
         

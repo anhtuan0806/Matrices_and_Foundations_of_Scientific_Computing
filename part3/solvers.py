@@ -11,11 +11,11 @@ def calculate_residual_error(matrix_A: List[List[float]], solution_x: List[float
     number_of_rows = len(matrix_A)
     
     # Tính Ax
-    matrix_product_Ax = [sum(matrix_A[i][j] * solution_x[j] for j in range(len(solution_x))) 
-                         for i in range(number_of_rows)]
+    matrix_product_Ax = [sum(matrix_A[row_index][col_index] * solution_x[col_index] for col_index in range(len(solution_x))) 
+                         for row_index in range(number_of_rows)]
     
     # Tính sai số (Ax - b)
-    difference_vector = [matrix_product_Ax[i] - vector_b[i] for i in range(number_of_rows)]
+    difference_vector = [matrix_product_Ax[row_index] - vector_b[row_index] for row_index in range(number_of_rows)]
     
     norm_residual = calculate_vector_norm(difference_vector)
     norm_b = calculate_vector_norm(vector_b)
@@ -46,17 +46,17 @@ def solve_system_via_qr(matrix_A: List[List[float]], vector_b: List[float]) -> L
     
     # Tính y = Q^T * b
     matrix_QT = transpose_matrix(matrix_Q)
-    vector_y = [sum(matrix_QT[i][k] * vector_b[k] for k in range(len(vector_b))) 
-                for i in range(number_of_vars)]
+    vector_y = [sum(matrix_QT[row_index][k_index] * vector_b[k_index] for k_index in range(len(vector_b))) 
+                for row_index in range(number_of_vars)]
     
     # Thế ngược giải hệ Rx = y
     solution_x = [0.0] * number_of_vars
-    for i in range(number_of_vars - 1, -1, -1):
-        back_sum = sum(matrix_R[i][j] * solution_x[j] for j in range(i + 1, number_of_vars))
-        if abs(matrix_R[i][i]) > EPSILON:
-            solution_x[i] = (vector_y[i] - back_sum) / matrix_R[i][i]
+    for row_index in range(number_of_vars - 1, -1, -1):
+        back_sum = sum(matrix_R[row_index][col_index] * solution_x[col_index] for col_index in range(row_index + 1, number_of_vars))
+        if abs(matrix_R[row_index][row_index]) > EPSILON:
+            solution_x[row_index] = (vector_y[row_index] - back_sum) / matrix_R[row_index][row_index]
         else:
-            solution_x[i] = 0.0
+            solution_x[row_index] = 0.0
             
     return solution_x
 
@@ -71,9 +71,9 @@ def solve_system_via_gauss_seidel(matrix_A: List[List[float]], vector_b: List[fl
 
     # Kiểm tra điều kiện chéo trội để đưa ra cảnh báo hội tụ
     is_diagonally_dominant = True
-    for i in range(number_of_vars):
-        diagonal_value = abs(matrix_A[i][i])
-        off_diagonal_sum = sum(abs(matrix_A[i][j]) for j in range(number_of_vars) if i != j)
+    for row_index in range(number_of_vars):
+        diagonal_value = abs(matrix_A[row_index][row_index])
+        off_diagonal_sum = sum(abs(matrix_A[row_index][col_index]) for col_index in range(number_of_vars) if row_index != col_index)
         if diagonal_value <= off_diagonal_sum:
             is_diagonally_dominant = False
             break
@@ -83,19 +83,19 @@ def solve_system_via_gauss_seidel(matrix_A: List[List[float]], vector_b: List[fl
         print("Cảnh báo: Ma trận không chéo trội, Gauss-Seidel có thể không hội tụ.".encode('ascii', 'ignore').decode())
 
     # Vòng lặp Gauss-Seidel
-    for iteration in range(max_iterations):
+    for iteration_index in range(max_iterations):
         max_absolute_change = 0.0
-        for i in range(number_of_vars):
-            current_sum = sum(matrix_A[i][j] * solution_x[j] for j in range(number_of_vars) if i != j)
+        for row_index in range(number_of_vars):
+            current_sum = sum(matrix_A[row_index][col_index] * solution_x[col_index] for col_index in range(number_of_vars) if row_index != col_index)
             
-            if abs(matrix_A[i][i]) < EPSILON:
-                raise ZeroDivisionError(f"Phần tử đường chéo tại dòng {i} quá nhỏ.")
+            if abs(matrix_A[row_index][row_index]) < EPSILON:
+                raise ZeroDivisionError(f"Phần tử đường chéo tại dòng {row_index} quá nhỏ.")
                 
-            new_xi_val = (vector_b[i] - current_sum) / matrix_A[i][i]
+            new_xi_val = (vector_b[row_index] - current_sum) / matrix_A[row_index][row_index]
             
             # Cập nhật sai lệch để kiểm tra điều kiện dừng
-            max_absolute_change = max(max_absolute_change, abs(new_xi_val - solution_x[i]))
-            solution_x[i] = new_xi_val
+            max_absolute_change = max(max_absolute_change, abs(new_xi_val - solution_x[row_index]))
+            solution_x[row_index] = new_xi_val
 
         # Nếu sự thay đổi giữa 2 bước lặp nhỏ hơn ngưỡng cho phép, ta coi là đã hội tụ
         if max_absolute_change < tolerance:

@@ -26,8 +26,8 @@ def calculate_matrix_determinant(matrix_A: List[List[float]]) -> float:
         determinant_value = (-1.0) ** swap_count
         
         # Định thức bằng tích các phần tử trên đường chéo chính của ma trận U
-        for i in range(number_of_rows):
-            determinant_value *= augmented_matrix[i][i]
+        for row_index in range(number_of_rows):
+            determinant_value *= augmented_matrix[row_index][row_index]
             
         # Làm sạch kết quả nếu định thức cực nhỏ (do sai số làm tròn)
         return 0.0 if abs(determinant_value) < EPSILON else determinant_value

@@ -46,21 +46,21 @@ def display_general_solution(solution_coefficients: List[List[float]], free_colu
     Hàm này phục vụ mục đích trình bày kết quả cho các hệ vô số nghiệm.
     """
     number_of_variables = len(solution_coefficients)
-    free_variable_names = [f"t{i+1}" for i in range(len(free_column_indices))]
+    free_variable_names = [f"t{index+1}" for index in range(len(free_column_indices))]
     
     # Hàm lambda để làm sạch các giá trị quá nhỏ, tránh gây nhiễu khi hiển thị
     clean_value = lambda value: 0.0 if abs(value) < EPSILON else round(value, 10)
 
     print("\n  ── Nghiệm tổng quát ──")
-    for j in range(number_of_variables):
-        print(f"  x{j+1} = {format_term_expression(solution_coefficients[j], free_variable_names)}")
+    for col_index in range(number_of_variables):
+        print(f"  x{col_index+1} = {format_term_expression(solution_coefficients[col_index], free_variable_names)}")
 
     print("\n  ── Dạng vector ──")
-    particular_solution = [f"{clean_value(solution_coefficients[j][0]):g}" for j in range(number_of_variables)]
+    particular_solution = [f"{clean_value(solution_coefficients[col_index][0]):g}" for col_index in range(number_of_variables)]
     print(f"  x = ({', '.join(particular_solution)})")
     
-    for k, name in enumerate(free_variable_names):
-        basis_vector = [f"{clean_value(solution_coefficients[j][1+k]):g}" for j in range(number_of_variables)]
+    for free_index, name in enumerate(free_variable_names):
+        basis_vector = [f"{clean_value(solution_coefficients[col_index][1+free_index]):g}" for col_index in range(number_of_variables)]
         print(f"      + {name} * ({', '.join(basis_vector)})")
 
 def solve_back_substitution(upper_triangular_matrix: List[List[float]], constant_vector: List[float]) -> Union[List[float], Tuple[List[List[float]], List[int]], str]:
@@ -73,18 +73,18 @@ def solve_back_substitution(upper_triangular_matrix: List[List[float]], constant
     current_row = 0
     
     # Xác định các vị trí chốt (pivot) để phân loại ẩn chính và ẩn tự do
-    for j in range(cols_count):
-        if current_row < rows_count and abs(upper_triangular_matrix[current_row][j]) > EPSILON:
+    for col_index in range(cols_count):
+        if current_row < rows_count and abs(upper_triangular_matrix[current_row][col_index]) > EPSILON:
             pivot_rows.append(current_row)
-            pivot_cols.append(j)
+            pivot_cols.append(col_index)
             current_row += 1
             
     # Kiểm tra tính tương thích của hệ: nếu dòng 0 có hệ số tự do khác 0 thì vô nghiệm
-    for i in range(current_row, rows_count):
-        if abs(constant_vector[i]) > EPSILON:
+    for row_index in range(current_row, rows_count):
+        if abs(constant_vector[row_index]) > EPSILON:
             return "Hệ phương trình vô nghiệm."
             
-    free_cols = [j for j in range(cols_count) if j not in pivot_cols]
+    free_cols = [col_index for col_index in range(cols_count) if col_index not in pivot_cols]
     num_free_vars = len(free_cols)
     
     # Khởi tạo ma trận hệ số cho nghiệm tổng quát (kết hợp hằng số và các ẩn tự do)
@@ -96,23 +96,23 @@ def solve_back_substitution(upper_triangular_matrix: List[List[float]], constant
         solution_coefficients[free_idx][1 + index] = 1.0
         
     # Thực hiện thế ngược từ dưới lên để tìm biểu thức của các ẩn chính
-    for i in range(len(pivot_cols) - 1, -1, -1):
-        p_col, p_row = pivot_cols[i], pivot_rows[i]
+    for pivot_index in range(len(pivot_cols) - 1, -1, -1):
+        p_col, p_row = pivot_cols[pivot_index], pivot_rows[pivot_index]
         temp_coefficients = [0.0] * (1 + num_free_vars)
         temp_coefficients[0] = constant_vector[p_row]
         
-        for j in range(p_col + 1, cols_count):
-            coefficient_val = upper_triangular_matrix[p_row][j]
+        for col_index in range(p_col + 1, cols_count):
+            coefficient_val = upper_triangular_matrix[p_row][col_index]
             if abs(coefficient_val) > EPSILON:
-                for k in range(1 + num_free_vars):
-                    temp_coefficients[k] -= coefficient_val * solution_coefficients[j][k]
+                for coeff_index in range(1 + num_free_vars):
+                    temp_coefficients[coeff_index] -= coefficient_val * solution_coefficients[col_index][coeff_index]
                     
         pivot_value = upper_triangular_matrix[p_row][p_col]
         solution_coefficients[p_col] = [val / pivot_value for val in temp_coefficients]
         
     # Trả về kết quả phù hợp với số lượng nghiệm
     if num_free_vars == 0:
-        return [solution_coefficients[j][0] for j in range(cols_count)]
+        return [solution_coefficients[col_index][0] for col_index in range(cols_count)]
     return (solution_coefficients, free_cols)
 
 def perform_gaussian_elimination(matrix_A: List[List[float]], vector_b: List[float], verbose: bool = True) -> Tuple[List[List[float]], Any, int]:
@@ -128,19 +128,19 @@ def perform_gaussian_elimination(matrix_A: List[List[float]], vector_b: List[flo
     augmented_matrix = [row[:] + [vector_b[i]] for i, row in enumerate(matrix_A)]
     current_pivot_row = 0
     
-    for j in range(cols_count):
+    for col_index in range(cols_count):
         if current_pivot_row >= rows_count:
             break
             
         # Tìm phần tử có giá trị tuyệt đối lớn nhất trên cột hiện tại để làm chốt
         # Điều này giúp giảm thiểu sai số tuyệt đối khi thực hiện phép chia
-        max_absolute_val = abs(augmented_matrix[current_pivot_row][j])
+        max_absolute_val = abs(augmented_matrix[current_pivot_row][col_index])
         swap_target_row = current_pivot_row
         
-        for i in range(current_pivot_row + 1, rows_count):
-            if abs(augmented_matrix[i][j]) > max_absolute_val:
-                max_absolute_val = abs(augmented_matrix[i][j])
-                swap_target_row = i
+        for row_index in range(current_pivot_row + 1, rows_count):
+            if abs(augmented_matrix[row_index][col_index]) > max_absolute_val:
+                max_absolute_val = abs(augmented_matrix[row_index][col_index])
+                swap_target_row = row_index
                 
         # Nếu cột toàn số 0 (hoặc cực nhỏ), bỏ qua và chuyển sang cột tiếp theo
         if max_absolute_val < EPSILON:
@@ -153,11 +153,11 @@ def perform_gaussian_elimination(matrix_A: List[List[float]], vector_b: List[flo
             swap_count += 1
             
         # Triệt tiêu các phần tử bên dưới chốt
-        for i in range(current_pivot_row + 1, rows_count):
-            factor = augmented_matrix[i][j] / augmented_matrix[current_pivot_row][j]
-            augmented_matrix[i][j] = 0.0  # Đặt cứng về 0 để tránh nhiễu số thực
-            for k in range(j + 1, cols_count + 1):
-                augmented_matrix[i][k] -= factor * augmented_matrix[current_pivot_row][k]
+        for row_index in range(current_pivot_row + 1, rows_count):
+            factor = augmented_matrix[row_index][col_index] / augmented_matrix[current_pivot_row][col_index]
+            augmented_matrix[row_index][col_index] = 0.0  # Đặt cứng về 0 để tránh nhiễu số thực
+            for target_col_index in range(col_index + 1, cols_count + 1):
+                augmented_matrix[row_index][target_col_index] -= factor * augmented_matrix[current_pivot_row][target_col_index]
         
         current_pivot_row += 1
         

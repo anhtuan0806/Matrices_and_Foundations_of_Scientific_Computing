@@ -16,39 +16,39 @@ def calculate_matrix_inverse(matrix_A: List[List[float]]) -> List[List[float]]:
         raise ValueError("Chỉ ma trận vuông mới có khả năng nghịch đảo.")
         
     # Tạo ma trận đơn vị I cùng kích thước với A
-    identity_matrix = [[1.0 if i == j else 0.0 for j in range(number_of_rows)] 
-                       for i in range(number_of_rows)]
+    identity_matrix = [[1.0 if row_idx == col_idx else 0.0 for col_idx in range(number_of_rows)] 
+                       for row_idx in range(number_of_rows)]
     
     # Tạo ma trận tăng cường [A | I]
-    augmented_matrix = [matrix_A[i][:] + identity_matrix[i][:] for i in range(number_of_rows)]
+    augmented_matrix = [matrix_A[row_index][:] + identity_matrix[row_index][:] for row_index in range(number_of_rows)]
     
-    for k in range(number_of_rows):
+    for pivot_index in range(number_of_rows):
         # Chọn phần tử chốt lớn nhất trên cột k (Partial Pivoting) để tăng tính ổn định
-        max_absolute_row_idx = k
-        for i in range(k + 1, number_of_rows):
-            if abs(augmented_matrix[i][k]) > abs(augmented_matrix[max_absolute_row_idx][k]):
-                max_absolute_row_idx = i
+        max_absolute_row_idx = pivot_index
+        for row_index in range(pivot_index + 1, number_of_rows):
+            if abs(augmented_matrix[row_index][pivot_index]) > abs(augmented_matrix[max_absolute_row_idx][pivot_index]):
+                max_absolute_row_idx = row_index
                 
         # Nếu phần tử chốt lớn nhất xấp xỉ 0, ma trận không khả nghịch (suy biến)
-        if abs(augmented_matrix[max_absolute_row_idx][k]) < EPSILON:
-            raise ValueError(f"Ma trận không khả nghịch (không tìm thấy pivot tại cột {k+1}).")
+        if abs(augmented_matrix[max_absolute_row_idx][pivot_index]) < EPSILON:
+            raise ValueError(f"Ma trận không khả nghịch (không tìm thấy pivot tại cột {pivot_index+1}).")
             
         # Hoán đổi dòng hiện tại với dòng chứa phần tử chốt
-        augmented_matrix[k], augmented_matrix[max_absolute_row_idx] = \
-            augmented_matrix[max_absolute_row_idx], augmented_matrix[k]
+        augmented_matrix[pivot_index], augmented_matrix[max_absolute_row_idx] = \
+            augmented_matrix[max_absolute_row_idx], augmented_matrix[pivot_index]
             
         # Chuẩn hóa dòng k để phần tử chốt (pivot) bằng 1
-        pivot_value = augmented_matrix[k][k]
-        augmented_matrix[k] = [element / pivot_value for element in augmented_matrix[k]]
+        pivot_value = augmented_matrix[pivot_index][pivot_index]
+        augmented_matrix[pivot_index] = [element / pivot_value for element in augmented_matrix[pivot_index]]
         
         # Triệt tiêu tất cả các phần tử khác trên cột k (cả trên và dưới pivot)
         # Đây là sự khác biệt giữa Gauss-Jordan (tạo RREF) và Gauss thông thường (tạo REF)
-        for i in range(number_of_rows):
-            if i != k:
-                factor = augmented_matrix[i][k]
-                augmented_matrix[i][k] = 0.0  # Triệt tiêu phần tử
-                for j in range(k + 1, 2 * number_of_rows):
-                    augmented_matrix[i][j] -= factor * augmented_matrix[k][j]
+        for row_index in range(number_of_rows):
+            if row_index != pivot_index:
+                factor = augmented_matrix[row_index][pivot_index]
+                augmented_matrix[row_index][pivot_index] = 0.0  # Triệt tiêu phần tử
+                for col_index in range(pivot_index + 1, 2 * number_of_rows):
+                    augmented_matrix[row_index][col_index] -= factor * augmented_matrix[pivot_index][col_index]
                     
     # Trích xuất phần bên phải của ma trận tăng cường chính là A^-1
     inverse_matrix = [row[number_of_rows:] for row in augmented_matrix]
