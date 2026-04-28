@@ -1,105 +1,175 @@
 
-def _fmt_term(coef_vec, free_names):
-    eps = 1e-12
+from typing import List, Tuple, Union, Any
+
+# Hằng số quy định ngưỡng sai số làm tròn cho tính toán số thực
+# Giúp xác định các giá trị xấp xỉ 0 để tránh lỗi chia cho 0 và tăng tính ổn định
+EPSILON = 1e-12
+
+def format_term_expression(coefficient_vector: List[float], free_variable_names: List[str]) -> str:
+    """
+    Biểu diễn một thành phần của nghiệm (x_i) dưới dạng chuỗi toán học kết hợp các ẩn tự do.
+    Việc sử dụng format này giúp người dùng dễ dàng theo dõi nghiệm tổng quát của hệ.
+    """
     parts = []
-    const = round(coef_vec[0], 10)
-    if abs(const) > eps:
-        parts.append(f"{const:g}")
-    for k, name in enumerate(free_names):
-        c = round(coef_vec[1 + k], 10)
-        if abs(c) < eps:
+    constant_value = round(coefficient_vector[0], 10)
+    
+    # Chỉ thêm hằng số vào biểu thức nếu nó đáng kể
+    if abs(constant_value) > EPSILON:
+        parts.append(f"{constant_value:g}")
+        
+    for index, name in enumerate(free_variable_names):
+        coefficient = round(coefficient_vector[1 + index], 10)
+        
+        # Bỏ qua các ẩn tự do có hệ số bằng 0 để làm gọn biểu thức
+        if abs(coefficient) < EPSILON:
             continue
-        if abs(abs(c) - 1.0) < 1e-9:
-            term = name if c > 0 else f"-{name}"
+            
+        # Xử lý các trường hợp đặc biệt của hệ số (1, -1) để biểu thức tự nhiên hơn
+        if abs(abs(coefficient) - 1.0) < 1e-9:
+            term = name if coefficient > 0 else f"-{name}"
         else:
-            term = f"{c:g}*{name}"
+            term = f"{coefficient:g}*{name}"
         parts.append(term)
+        
     if not parts:
         return "0"
-    expr = parts[0]
-    for p in parts[1:]:
-        expr += f" - {p[1:]}" if p.startswith('-') else f" + {p}"
-    return expr
+        
+    expression = parts[0]
+    for part in parts[1:]:
+        # Kết hợp các thành phần bằng dấu + hoặc - phù hợp
+        expression += f" - {part[1:]}" if part.startswith('-') else f" + {part}"
+    return expression
 
-def _print_general_solution(x_coef, free_cols):
-    n = len(x_coef)
-    free_names = [f"t{i+1}" for i in range(len(free_cols))]
-    eps = 1e-12
-    clean = lambda v: 0.0 if abs(v) < eps else round(v, 10)
+def display_general_solution(solution_coefficients: List[List[float]], free_column_indices: List[int]) -> None:
+    """
+    Hiển thị nghiệm tổng quát dưới dạng đại số và dạng vector.
+    Hàm này phục vụ mục đích trình bày kết quả cho các hệ vô số nghiệm.
+    """
+    number_of_variables = len(solution_coefficients)
+    free_variable_names = [f"t{i+1}" for i in range(len(free_column_indices))]
+    
+    # Hàm lambda để làm sạch các giá trị quá nhỏ, tránh gây nhiễu khi hiển thị
+    clean_value = lambda value: 0.0 if abs(value) < EPSILON else round(value, 10)
 
     print("\n  ── Nghiệm tổng quát ──")
-    for j in range(n):
-        print(f"  x{j+1} = {_fmt_term(x_coef[j], free_names)}")
+    for j in range(number_of_variables):
+        print(f"  x{j+1} = {format_term_expression(solution_coefficients[j], free_variable_names)}")
 
     print("\n  ── Dạng vector ──")
-    x_p = [f"{clean(x_coef[j][0]):g}" for j in range(n)]
-    print(f"  x = ({', '.join(x_p)})")
-    for k, name in enumerate(free_names):
-        vk = [f"{clean(x_coef[j][1+k]):g}" for j in range(n)]
-        print(f"      + {name} * ({', '.join(vk)})")
+    particular_solution = [f"{clean_value(solution_coefficients[j][0]):g}" for j in range(number_of_variables)]
+    print(f"  x = ({', '.join(particular_solution)})")
+    
+    for k, name in enumerate(free_variable_names):
+        basis_vector = [f"{clean_value(solution_coefficients[j][1+k]):g}" for j in range(number_of_variables)]
+        print(f"      + {name} * ({', '.join(basis_vector)})")
 
-def back_substitution(U, c):
-    m, n = len(U), len(U[0])
-    eps = 1e-12
+def solve_back_substitution(upper_triangular_matrix: List[List[float]], constant_vector: List[float]) -> Union[List[float], Tuple[List[List[float]], List[int]], str]:
+    """
+    Giải hệ phương trình tam giác trên bằng phương pháp thế ngược.
+    Hỗ trợ cả trường hợp nghiệm duy nhất, vô số nghiệm và vô nghiệm.
+    """
+    rows_count, cols_count = len(upper_triangular_matrix), len(upper_triangular_matrix[0])
     pivot_rows, pivot_cols = [], []
-    r = 0
-    for j in range(n):
-        if r < m and abs(U[r][j]) > eps:
-            pivot_rows.append(r)
+    current_row = 0
+    
+    # Xác định các vị trí chốt (pivot) để phân loại ẩn chính và ẩn tự do
+    for j in range(cols_count):
+        if current_row < rows_count and abs(upper_triangular_matrix[current_row][j]) > EPSILON:
+            pivot_rows.append(current_row)
             pivot_cols.append(j)
-            r += 1
-    for i in range(r, m):
-        if abs(c[i]) > eps:
+            current_row += 1
+            
+    # Kiểm tra tính tương thích của hệ: nếu dòng 0 có hệ số tự do khác 0 thì vô nghiệm
+    for i in range(current_row, rows_count):
+        if abs(constant_vector[i]) > EPSILON:
             return "Hệ phương trình vô nghiệm."
-    free_cols = [j for j in range(n) if j not in pivot_cols]
-    num_free = len(free_cols)
-    x_coef = [[0.0] * (1 + num_free) for _ in range(n)]
-    for idx, fj in enumerate(free_cols):
-        x_coef[fj][1 + idx] = 1.0
+            
+    free_cols = [j for j in range(cols_count) if j not in pivot_cols]
+    num_free_vars = len(free_cols)
+    
+    # Khởi tạo ma trận hệ số cho nghiệm tổng quát (kết hợp hằng số và các ẩn tự do)
+    # Cấu trúc: [hằng số, hệ số_t1, hệ số_t2, ...]
+    solution_coefficients = [[0.0] * (1 + num_free_vars) for _ in range(cols_count)]
+    
+    # Gán giá trị mặc định cho các ẩn tự do (t_i tương ứng với chính nó)
+    for index, free_idx in enumerate(free_cols):
+        solution_coefficients[free_idx][1 + index] = 1.0
+        
+    # Thực hiện thế ngược từ dưới lên để tìm biểu thức của các ẩn chính
     for i in range(len(pivot_cols) - 1, -1, -1):
-        pc, pr = pivot_cols[i], pivot_rows[i]
-        coef = [0.0] * (1 + num_free)
-        coef[0] = c[pr]
-        for j in range(pc + 1, n):
-            uij = U[pr][j]
-            if abs(uij) > eps:
-                for k in range(1 + num_free):
-                    coef[k] -= uij * x_coef[j][k]
-        piv = U[pr][pc]
-        x_coef[pc] = [v / piv for v in coef]
-    if num_free == 0:
-        return [x_coef[j][0] for j in range(n)]
-    return (x_coef, free_cols)
+        p_col, p_row = pivot_cols[i], pivot_rows[i]
+        temp_coefficients = [0.0] * (1 + num_free_vars)
+        temp_coefficients[0] = constant_vector[p_row]
+        
+        for j in range(p_col + 1, cols_count):
+            coefficient_val = upper_triangular_matrix[p_row][j]
+            if abs(coefficient_val) > EPSILON:
+                for k in range(1 + num_free_vars):
+                    temp_coefficients[k] -= coefficient_val * solution_coefficients[j][k]
+                    
+        pivot_value = upper_triangular_matrix[p_row][p_col]
+        solution_coefficients[p_col] = [val / pivot_value for val in temp_coefficients]
+        
+    # Trả về kết quả phù hợp với số lượng nghiệm
+    if num_free_vars == 0:
+        return [solution_coefficients[j][0] for j in range(cols_count)]
+    return (solution_coefficients, free_cols)
 
-def gaussian_eliminate(A, b, verbose=True):
-    m, n = len(A), len(A[0])
-    s = 0
-    eps = 1e-12
-    M = [row[:] + [b[i]] for i, row in enumerate(A)]
-    r = 0
-    for j in range(n):
-        if r >= m:
+def perform_gaussian_elimination(matrix_A: List[List[float]], vector_b: List[float], verbose: bool = True) -> Tuple[List[List[float]], Any, int]:
+    """
+    Thực hiện phép khử Gauss với kỹ thuật chọn phần tử chốt một phần (Partial Pivoting).
+    Kỹ thuật này cực kỳ quan trọng để đảm bảo tính ổn định số học, tránh chia cho các số quá nhỏ
+    làm khuếch đại sai số làm tròn trong tính toán dấu phẩy động.
+    """
+    rows_count, cols_count = len(matrix_A), len(matrix_A[0])
+    swap_count = 0
+    
+    # Tạo ma trận tăng cường [A | b] để thực hiện biến đổi dòng đồng thời
+    augmented_matrix = [row[:] + [vector_b[i]] for i, row in enumerate(matrix_A)]
+    current_pivot_row = 0
+    
+    for j in range(cols_count):
+        if current_pivot_row >= rows_count:
             break
-        max_val = abs(M[r][j])
-        p = r
-        for i in range(r + 1, m):
-            if abs(M[i][j]) > max_val:
-                max_val = abs(M[i][j])
-                p = i
-        if max_val < eps:
+            
+        # Tìm phần tử có giá trị tuyệt đối lớn nhất trên cột hiện tại để làm chốt
+        # Điều này giúp giảm thiểu sai số tuyệt đối khi thực hiện phép chia
+        max_absolute_val = abs(augmented_matrix[current_pivot_row][j])
+        swap_target_row = current_pivot_row
+        
+        for i in range(current_pivot_row + 1, rows_count):
+            if abs(augmented_matrix[i][j]) > max_absolute_val:
+                max_absolute_val = abs(augmented_matrix[i][j])
+                swap_target_row = i
+                
+        # Nếu cột toàn số 0 (hoặc cực nhỏ), bỏ qua và chuyển sang cột tiếp theo
+        if max_absolute_val < EPSILON:
             continue
-        if p != r:
-            M[r], M[p] = M[p], M[r]
-            s += 1
-        for i in range(r + 1, m):
-            factor = M[i][j] / M[r][j]
-            M[i][j] = 0.0
-            for k in range(j + 1, n + 1):
-                M[i][k] -= factor * M[r][k]
-        r += 1
-    U = [row[:-1] for row in M]
-    c = [row[-1] for row in M]
-    x = back_substitution(U, c)
-    if verbose and isinstance(x, tuple):
-        _print_general_solution(x[0], x[1])
-    return M, x, s
+            
+        # Hoán đổi dòng hiện tại với dòng chứa phần tử chốt tốt nhất
+        if swap_target_row != current_pivot_row:
+            augmented_matrix[current_pivot_row], augmented_matrix[swap_target_row] = \
+                augmented_matrix[swap_target_row], augmented_matrix[current_pivot_row]
+            swap_count += 1
+            
+        # Triệt tiêu các phần tử bên dưới chốt
+        for i in range(current_pivot_row + 1, rows_count):
+            factor = augmented_matrix[i][j] / augmented_matrix[current_pivot_row][j]
+            augmented_matrix[i][j] = 0.0  # Đặt cứng về 0 để tránh nhiễu số thực
+            for k in range(j + 1, cols_count + 1):
+                augmented_matrix[i][k] -= factor * augmented_matrix[current_pivot_row][k]
+        
+        current_pivot_row += 1
+        
+    # Tách ma trận tam giác trên U và vector c sau khi khử
+    upper_matrix_U = [row[:-1] for row in augmented_matrix]
+    constant_vector_c = [row[-1] for row in augmented_matrix]
+    
+    # Giải hệ bằng thế ngược
+    solution_x = solve_back_substitution(upper_matrix_U, constant_vector_c)
+    
+    # Hỗ trợ hiển thị kết quả nếu hệ có vô số nghiệm
+    if verbose and isinstance(solution_x, tuple):
+        display_general_solution(solution_x[0], solution_x[1])
+        
+    return augmented_matrix, solution_x, swap_count
