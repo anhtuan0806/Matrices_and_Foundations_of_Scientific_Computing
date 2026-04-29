@@ -1,0 +1,306 @@
+\newpage
+\chapter*{\centering{\MakeUppercase{PHẦN 3: THỰC NGHIỆM VÀ PHÂN TÍCH ĐÁNH GIÁ}}}
+\phantomsection
+\addcontentsline{toc}{chapter}{\textcolor{fitblue}{\MakeUppercase{PHẦN 3: THỰC NGHIỆM VÀ PHÂN TÍCH ĐÁNH GIÁ}}}
+
+\section*{3.1. Giới thiệu tổng quan và Cơ sở lý thuyết}
+\phantomsection
+\addcontentsline{toc}{section}{3.1. Giới thiệu tổng quan và Cơ sở lý thuyết}
+
+Mục tiêu của phần này là khảo sát, đo lường và đánh giá ba thuật toán giải hệ phương trình tuyến tính $Ax = b$ phổ biến: Khử Gauss, Phân rã QR, và Lặp Gauss-Seidel. Quá trình đánh giá được thực hiện qua hai lăng kính chính: \textbf{Hiệu năng phần mềm (thời gian thực thi)} và \textbf{Tính ổn định số học (sai số làm tròn trên không gian dấu phẩy động)}.
+
+Theo yêu cầu của đề tài, toàn bộ thuật toán được \textbf{tự lập trình bằng Python thuần} bằng cấu trúc dữ liệu `list of lists` (không sử dụng \texttt{numpy.linalg.solve} hay ma trận `numpy.ndarray` c-extension). Điều này đảm bảo chi phí tính toán lý thuyết và thực tế được phản xạ một cách trung thực nhất.
+
+\textbf{Cơ sở lý thuyết dùng để đánh giá:}
+\begin{itemize}
+    \item \textbf{Sai số dư tương đối:} Là thước đo độ chính xác của nghiệm tìm được $\hat{x}$ so với vế phải của phương trình bằng chuẩn 2:
+    $$ \text{Sai số dư tương đối} = \frac{\|A\hat{x} - b\|_2}{\|b\|_2} $$
+    \item \textbf{Độ phức tạp tính toán:} Số phép toán dấu phẩy động (FLOPs). Phân rã trực tiếp (Gauss, QR) đòi hỏi $O(n^3)$ thời gian, trong khi Gauss-Seidel có thể đạt xấp xỉ $O(k n^2)$ nếu hội tụ sau $k$ bước lặp.
+    \item \textbf{Số điều kiện và Định lý Diễn Dịch Sai Số:} Kí hiệu $\kappa(A) = \|A\| \cdot \|A^{-1}\|$. Đây là đại lượng cho biết khả năng khuếch đại sai số số học của hệ phương trình. Định lý sai số thiết lập mối quan hệ chặt chẽ giữa sai số tương đối của phương án nghiệm (Forward Error - $\|\Delta x\|/\|x\|$) và sai số tương đối của đối số đầu vào (Backward Error - $\|\Delta b\|/\|b\|$) thông qua bất đẳng thức: $\frac{\|\Delta x\|}{\|x\|} \leq \kappa(A) \cdot \frac{\|\Delta b\|}{\|b\|}$.
+    \item \textbf{Phân rã ma trận lặp:} Đối với các phương pháp tiếp cận lặp như Gauss-Seidel, ta có phân rã được mô hình vế trái về cấu trúc $A = D + L + U$ (trong đó $D$ là đường chéo, $L$ là tam giác dưới thuần và $U$ là cấu trúc tam giác trên thuần). Khi đó, công thức lặp đại số được biểu diễn trọn vẹn là $x^{(k+1)} = -(D+L)^{-1}U x^{(k)} + (D+L)^{-1}b$. Khả năng giải thuật hội tụ của hệ điều phối tuyến tính này phụ thuộc hoàn toàn vào phổ của khối ma trận lặp (yêu cầu bán kính phổ $\rho < 1$). Điều kiện khắt khe này được bảo đảm dứt khoát nếu ma trận $A$ đạt tính chất chéo trội chặt tại đa số các hàng.
+\end{itemize}
+
+\section*{3.2. Cài đặt thuật toán giải hệ phương trình tuyến tính}
+\phantomsection
+\addcontentsline{toc}{section}{3.2. Cài đặt thuật toán giải hệ phương trình tuyến tính}
+
+Khối mã nguồn dưới đây triển khai 3 thuật toán nền tảng trong đại số tuyến tính tính toán để giải hệ phương trình $Ax = b$. Việc tự thiết kế lại các hàm toán học cơ bản (nhân ma trận, tính chuẩn) giúp nhóm hoàn toàn làm chủ kịch bản đánh giá hiệu năng.
+
+% \begin{lstlisting}[style=numbered, language=Python]
+% import math
+% 
+% # ==========================================
+% # CÁC HÀM TIỆN ÍCH TOÁN HỌC CƠ BẢN
+% # ==========================================
+% def vector_norm(v):
+%     return math.sqrt(sum(x**2 for x in v))
+% 
+% def matrix_vector_mult(A, x):
+%     n = len(A)
+%     return [sum(A[i][j] * x[j] for j in range(n)) for i in range(n)]
+% 
+% def calc_relative_error(A, x, b):
+%     Ax = matrix_vector_mult(A, x)
+%     diff = [Ax[i] - b[i] for i in range(len(b))]
+%     norm_diff = vector_norm(diff)
+%     norm_b = vector_norm(b)
+%     return norm_diff / norm_b if norm_b != 0 else norm_diff
+% \end{lstlisting}
+
+\subsection*{3.2.1. Phương pháp Khử Gauss (Partial Pivoting)}
+\phantomsection
+\addcontentsline{toc}{subsection}{3.2.1. Phương pháp Khử Gauss (Partial Pivoting)}
+
+Thuật toán khử Gauss là phương pháp trực tiếp, bản chất biến đổi hệ phương trình gốc về dạng tam giác trên để giải bằng thế ngược. Việc áp dụng cơ chế Partial Pivoting (chọn phần tử chốt lớn nhất theo trị tuyệt đối trên cột khử hiện tại, rồi hoán vị hàng) là bắt buộc. Điều này giúp tránh hiện tượng chia cho số cực nhỏ (có thể dẫn tới lỗi Divided by Zero hoặc làm bùng nổ sai số làm tròn).
+
+% \begin{lstlisting}[style=numbered, language=Python]
+% # ==========================================
+% # 1. PHƯƠNG PHÁP KHỬ GAUSS (Partial Pivoting)
+% # ==========================================
+% def solve_gauss_pure(A_input, b_input):
+%     n = len(A_input)
+%     A = [row[:] for row in A_input]
+%     b = b_input[:]
+% 
+%     for i in range(n):
+%         max_row = i
+%         max_val = abs(A[i][i])
+%         for k in range(i + 1, n):
+%             if abs(A[k][i]) > max_val:
+%                 max_val = abs(A[k][i])
+%                 max_row = k
+% 
+%         if i != max_row:
+%             A[i], A[max_row] = A[max_row], A[i]
+%             b[i], b[max_row] = b[max_row], b[i]
+% 
+%         if abs(A[i][i]) < 1e-12: continue
+% 
+%         for k in range(i + 1, n):
+%             factor = A[k][i] / A[i][i]
+%             for j in range(i + 1, n):
+%                 A[k][j] -= factor * A[i][j]
+%             b[k] -= factor * b[i]
+% 
+%     x = [0.0] * n
+%     for i in range(n - 1, -1, -1):
+%         s = sum(A[i][j] * x[j] for j in range(i + 1, n))
+%         x[i] = (b[i] - s) / A[i][i]
+%     return x
+% \end{lstlisting}
+
+\begin{algorithm}[H]
+\caption{Giải hệ phương trình bằng Khử Gauss (Partial Pivoting)}
+\label{alg:gauss_pivoting}
+\begin{algorithmic}[1]
+\Procedure{SOLVE\_GAUSS}{$A, b$}
+    \State Sử dụng vòng lặp kiểm tra từng phần tử chốt lớn nhất trên đường chéo và hoán đổi dòng.
+    \State Khử tiếp các phần tử bên dưới chốt.
+    \State $x \gets$ thế ngược giải ma trận tam giác trên
+    \State \Return $x$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\subsection*{3.2.2. Phương pháp Phân rã QR (Gram-Schmidt)}
+\phantomsection
+\addcontentsline{toc}{subsection}{3.2.2. Phương pháp Phân rã QR (Gram-Schmidt)}
+
+Ứng dụng thuật toán trực giao hóa Gram-Schmidt để phân rã ma trận gốc thành tích $A = QR$ (với $Q$ là ma trận trực giao và $R$ là ma trận tam giác trên). So với Gauss phụ thuộc vào Pivoting, hướng tiếp cận QR ổn định hơn rất nhiều. Ta đưa bài toán giải $Ax = b \Leftrightarrow QRx = b \Leftrightarrow Rx = Q^Tb$.
+
+% \begin{lstlisting}[style=numbered, language=Python]
+% # ==========================================
+% # 2. PHƯƠNG PHÁP PHÂN RÃ QR (Gram-Schmidt)
+% # ==========================================
+% def solve_qr_pure(A_input, b_input):
+%     n = len(A_input)
+%     A = [row[:] for row in A_input]
+%     Q = [[0.0]*n for _ in range(n)]
+%     R = [[0.0]*n for _ in range(n)]
+% 
+%     for j in range(n):
+%         v = [A[i][j] for i in range(n)]
+%         for i in range(j):
+%             qi = [Q[k][i] for k in range(n)]
+%             R[i][j] = sum(qi[k] * v[k] for k in range(n))
+%             v = [v[k] - R[i][j]*qi[k] for k in range(n)]
+%         R[j][j] = vector_norm(v)
+%         if R[j][j] > 1e-12:
+%             for k in range(n): Q[k][j] = v[k] / R[j][j]
+% 
+%     y = [0.0] * n
+%     for i in range(n):
+%         y[i] = sum(Q[k][i] * b_input[k] for k in range(n))
+% 
+%     x = [0.0] * n
+%     for i in range(n - 1, -1, -1):
+%         s = sum(R[i][j] * x[j] for j in range(i + 1, n))
+%         if abs(R[i][i]) > 1e-12:
+%             x[i] = (y[i] - s) / R[i][i]
+%     return x
+% \end{lstlisting}
+
+\begin{algorithm}[H]
+\caption{Giải hệ phương trình bằng Phân rã QR}
+\label{alg:solve_qr}
+\begin{algorithmic}[1]
+\Procedure{SOLVE\_QR}{$A, b$}
+    \State $(Q, R) \gets \text{QR\_DECOMPOSITION}(A)$ \Comment{Sử dụng Gram-Schmidt}
+    \State $y \gets Q^T b$
+    \State $x \gets$ thế ngược giải $Rx = y$
+    \State \Return $x$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\subsection*{3.2.3. Phương pháp Lặp Gauss-Seidel}
+\phantomsection
+\addcontentsline{toc}{subsection}{3.2.3. Phương pháp Lặp Gauss-Seidel}
+
+Trái với hai phương pháp trực tiếp, Gauss-Seidel là thuật toán lặp: bắt đầu với một đoán trước ban đầu $x_0 = \vec{0}$, thuật toán thay thế nghiệm mới tức thời vào bên trong mô hình để sinh ra nghiệm hội tụ. Phương pháp này chỉ thành công khi ma trận \textbf{đường chéo trội nghiêm ngặt} (strictly diagonally dominant), nhưng nó sở hữu tốc độ vượt trội.
+
+% \begin{lstlisting}[style=numbered, language=Python]
+% # ==========================================
+% # 3. PHƯƠNG PHÁP LẶP GAUSS-SEIDEL
+% # ==========================================
+% def solve_gauss_seidel_pure(A, b, max_iters=1000, tol=1e-9):
+%     n = len(A)
+%     x = [0.0] * n
+% 
+%     # Kiểm tra điều kiện đường chéo trội (Diagonally Dominant)
+%     ... (mã nguồn được ẩn)
+% 
+%     for it in range(max_iters):
+%         max_diff = 0.0
+%         for i in range(n):
+%             s = sum(A[i][j] * x[j] for j in range(n) if i != j)
+%             x_new = (b[i] - s) / A[i][i]
+%             max_diff = max(max_diff, abs(x_new - x[i]))
+%             x[i] = x_new
+% 
+%         if max_diff < tol:
+%             break
+%     return x
+% \end{lstlisting}
+
+\begin{algorithm}[H]
+\caption{Giải hệ phương trình bằng Lặp Gauss-Seidel}
+\label{alg:gauss_seidel}
+\begin{algorithmic}[1]
+\Procedure{GAUSS\_SEIDEL}{$A, b, max\_iters, tol$}
+    \State $x \gets$ mảng $n$ phần tử 0; $n \gets$ cấp của $A$
+    \For{$it \gets 1$ to $max\_iters$}
+        \State $max\_diff \gets 0$
+        \For{$i \gets 0$ to $n-1$}
+            \State $s \gets \sum_{j \neq i} A[i][j] \times x[j]$
+            \State $x_{new} \gets (b[i] - s) / A[i][i]$
+            \State $max\_diff \gets \max(max\_diff, |x_{new} - x[i]|)$
+            \State $x[i] \gets x_{new}$
+        \EndFor
+        \If{$max\_diff < tol$}
+            \State \textbf{break} \Comment{Hội tụ}
+        \EndIf
+    \EndFor
+    \State \Return $x$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\section*{3.3. Thực nghiệm đo lường hiệu năng và phân tích}
+\phantomsection
+\addcontentsline{toc}{section}{3.3. Thực nghiệm đo lường hiệu năng và phân tích}
+
+Để thấy được độ phức tạp thời gian tăng tốc thế nào khi dữ liệu lớn lên, nhóm tiến hành sinh ngẫu nhiên các ma trận vuông có đặc thù là các phần tử trên đường chéo chính được cộng dồn (Strictly Diagonally Dominant) để thỏa mãn cả 3 thuật toán giải (đặc biệt là yêu cầu của Gauss-Seidel). Tập kích thước thử nghiệm là $n \in \{50, 100, 200, 500, 1000\}$. Mỗi thử nghiệm tính giờ qua thư viện \texttt{time.perf\_counter()}, chạy $5$ lần để lấy trung bình cộng (nhằm triệt tiêu sai số từ ứng dụng nền hệ điều hành OS).
+
+\textbf{Bảng thống kê kết quả chạy thực nghiệm (trích xuất từ cấu hình đo lường Notebook):}
+\begin{table}[H]
+    \centering
+    \caption{So sánh thời gian chạy thực tế (s) và sai số dư tương đối theo các hệ $N$}
+    \vspace{0.2cm}
+    \renewcommand{\arraystretch}{1.3}
+    \resizebox{\textwidth}{!}{
+        \begin{tabular}{|c|c|c|c|c|c|c|}
+        \hline
+        \textbf{Cấp $n$} & \textbf{Khử Gauss Time} & \textbf{Sai số dư Gauss} & \textbf{QR Time} & \textbf{Sai số dư QR} & \textbf{G-Seidel Time} & \textbf{Sai số dư GS} \\ \hline
+        50   & 0.0028 s & $1.90 \times 10^{-16}$ & 0.0106 s & $1.24 \times 10^{-16}$ & \textbf{0.0029 s} & $4.84 \times 10^{-11}$ \\ \hline
+        100  & 0.0201 s & $2.97 \times 10^{-16}$ & 0.0799 s & $1.39 \times 10^{-16}$ & \textbf{0.0111 s} & $7.17 \times 10^{-11}$ \\ \hline
+        200  & 0.1595 s & $3.69 \times 10^{-16}$ & 0.8562 s & $1.89 \times 10^{-16}$ & \textbf{0.0453 s} & $5.60 \times 10^{-11}$ \\ \hline
+        500  & 2.9714 s & $6.67 \times 10^{-16}$ & 12.4509 s & $2.58 \times 10^{-16}$ & \textbf{0.2954 s} & $7.12 \times 10^{-11}$ \\ \hline
+        1000 & 27.3750 s & $9.95 \times 10^{-16}$ & 111.5533 s & $3.18 \times 10^{-16}$ & \textbf{1.2561 s} & $8.07 \times 10^{-11}$ \\ \hline
+        \end{tabular}
+    }
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    % Lưu ảnh log_log_plot.png vào folder images
+    \includegraphics[width=0.8\textwidth]{images/log_log_plot.png}
+    \caption{Đồ thị Log-Log mô phỏng trực quan thời gian chạy của ba phương pháp}
+\end{figure}
+
+Việc vẽ đồ thị theo nguyên lý Logarit cơ số kép (Log-Log plot) biến các đường cong đa thức $T(n) = c \cdot n^\alpha$ thành các đường thẳng có hệ số góc bằng hệ số mũ $\alpha$, giúp ta dễ dàng tính được bậc độ phức tạp lý thuyết thực tế. Từ đồ thị trên và các số liệu thuộc bảng kiểm nghiệm, ta trực tiếp rút ra ba nhóm kết luận khoa học vững chắc:
+
+\subsection*{3.3.1. Phân tích Khử Gauss (Partial Pivoting)}
+Đường đo lường trên không gian log-log bám sát chặt chẽ lý thuyết $O(n^3)$ (hệ số góc $\alpha \approx 3$). Phương pháp mất khoảng $27.37$ giây để giải xong hệ phương trình 1000 ẩn số, đồng thời duy trì sai số tương đối ổn định quanh mức $10^{-16}$, tiệm cận với giới hạn Epsilon (\textbf{Machine Epsilon}) của kiến trúc 64-bit float. Kỹ thuật chốt (Partial Pivoting) đã chứng tỏ độ hiệu quả tối ưu về mặt tốc độ và điều tiết sai số trên các ma trận ngẫu nhiên đủ điều kiện tốt.
+
+\subsection*{3.3.2. Phân tích Phân rã QR (Gram-Schmidt)}
+Mặc dù có cùng hệ số góc $\alpha \approx 3$ (đường thẳng trên đồ thị song song với đường của thuật toán Gauss), thời gian thực thi của phương pháp QR luôn cao hơn đáng kể. Về lý thuyết, trong khi khử Gauss cần khoảng $\frac{2}{3}n^3$ phép tính, quá trình trực giao hóa vector của Gram-Schmidt tiêu tốn khoảng $2n^3$ phép tính. Số liệu ở $n=1000$ xác nhận đặc trưng này khi QR tốn $111.55$ giây, mất nhiều thời gian hơn tới gấp 4 lần. Dù vậy, phương pháp chiếu trực giao mang lại giá trị cao về sự ổn định số học và giúp triệt tiêu hoàn toàn sự rủi ro của lỗi chia phân số yếu.
+
+\subsection*{3.3.3. Hiệu năng của phương pháp lặp Gauss-Seidel}
+Đặc điểm nổi bật nhất của thuật toán lặp là sự thay đổi hệ số đường thẳng với độ dốc nhỏ hơn, biểu diễn tính phi bậc ba ($\alpha < 3$). Trong kích thước $n=1000$, Gauss-Seidel chỉ tốn xấp xỉ \textbf{1.25 giây} tương đối để hoàn thành giải hệ. Khả năng này bắt nguồn trực tiếp từ thuộc tính đường chéo trội nghiêm ngặt (Strictly Diagonally Dominant) của dữ liệu mẫu, tạo điều kiện cho hệ sớm hội tụ ở một số lượng hữu hạn các bước lặp $k$ và thắt chặt độ phức tạp theo thời gian tương đối là $O(kn^2)$.
+
+\subsection*{3.3.4. Phân tích chi phí tính toán và Truy xuất Bộ nhớ}
+Việc phân giải cơ chế thời gian thực thi của các phương pháp trên không chỉ dựa vào mô hình Toán lý thuyết mà còn phụ thuộc vào kiến trúc phần cứng máy tính. Về chi phí tính toán (FLOPs), thuật toán Gauss cơ bản yêu cầu xấp xỉ $\frac{2}{3}n^3$ phép nhân-cộng dấu phẩy động; trong khi kịch bản trực giao hóa của thuật giải Gram-Schmidt (QR) tiến hành $\approx 2n^3$ thao tác liên kết tổng vector và bình phương Euclidean. 
+
+Thực tế ghi nhận sự chênh lệch thời gian thực thi ở hệ $N=1000$ là $(111.55/27.37) \approx 4.07$ lần, vượt qua mức 3 lần theo lý thuyết tính toán đơn thuần. Sự khác biệt này bắt nguồn từ sự tương tác giữa cấu trúc dữ liệu và Kiến trúc Bộ đệm (CPU Cache). Trong môi trường Python, cấu trúc \texttt{list of lists} phân bổ bộ nhớ theo hàng (Row-major layout). Các vòng lặp của phương pháp Khử Gauss truy xuất dữ liệu tuần tự dọc theo dòng; ngược lại, quy trình Gram-Schmidt đòi hỏi trích xuất vector theo trục Y (cột) thông qua lệnh \texttt{v = [A[i][j] for i in range(n)]}. Việc truy xuất dữ liệu không liên tục trong bộ nhớ vật lý gây ra hiện tượng trượt bộ đệm (\textit{Cache Miss}), làm tăng đáng kể độ trễ IO và thời gian nạp dữ liệu. Đây là yếu tố then chốt giải thích tại sao hiệu năng thực tế của QR thấp hơn đáng kể so với kỳ vọng lý thuyết.
+\section*{3.4. Phân tích tính ổn định số học: Ma trận Hilbert vs. SPD}
+\phantomsection
+\addcontentsline{toc}{section}{3.4. Phân tích tính ổn định số học: Ma trận Hilbert vs. SPD}
+
+Độ chính xác của hệ phương trình $Ax = b$ không chỉ phụ thuộc vào cơ chế thuật toán, mà còn vấp vào đặc thù cấu trúc toán học của bản thân ma trận $A$. Phép đánh giá này được thực hiện để chứng minh vấn đề về sai số do hiệu ứng làm tròn (round-off error) đối với các hệ thống có tính đa cộng tuyến cao – được đánh giá thông qua chỉ số của Số điều kiện $\kappa(A)$.
+
+\subsection*{3.4.1. Thiết lập biến cố thực nghiệm}
+Nhóm thực hiện đối chiếu sai số dư của hai dạng ma trận vuông với kích thước cơ sở $n=10$:
+\begin{itemize}
+    \item \textbf{Ma trận Hilbert ($H_n$):} Khởi tạo dưới dạng $H_{ij} = \frac{1}{i+j-1}$. Ma trận này được biết đến với cấu trúc đặc trưng thiếu điều kiện số học (ill-conditioned) do khoảng cách giữa các vector cột vô cùng gần nhau.
+    \item \textbf{Ma trận Đối xứng Xác Định Dương (SPD):} Khởi tạo bằng phép nhân ngẫu nhiên $A = X^T X + nI$ nhằm mang lại cấu trúc có sự vững mạnh về mặt điều kiện (well-conditioned).
+\end{itemize}
+
+\begin{table}[H]
+    \centering
+    \caption{Phân tích biến động của sai số xoay quanh Số Điều kiện $\kappa$ đối với hệ kích thước $N=10$}
+    \vspace{0.2cm}
+    \renewcommand{\arraystretch}{1.3}
+    \begin{tabular}{|c|c|c|c|c|}
+    \hline
+    \textbf{Loại ma trận} & \textbf{Số điều kiện $\kappa(A)$} & \textbf{Sai số dư Gauss} & \textbf{Sai số dư QR} & \textbf{Sai số dư GS} \\ \hline
+    Hilbert (Ill-conditioned) & $1.60 \times 10^{13}$ & $0.00$ (Sai số dư bằng 0) & $2.20 \times 10^{-6}$ & $4.19 \times 10^{-6}$ \\ \hline
+    SPD (Well-conditioned) & $2.25$ & $1.96 \times 10^{-16}$ & $2.10 \times 10^{-16}$ & $1.22 \times 10^{-11}$ \\ \hline
+    \end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    % Lưu ảnh condition_number_plot.png từ IPython Jupyter Data
+    \includegraphics[width=0.8\textwidth]{images/condition_number_plot.png}
+    \caption{Biểu đồ phân tích độ khuếch đại của số điều kiện Hilbert khi kích thước ma trận n gia tăng}
+\end{figure}
+
+\subsection*{3.4.2. Khám phá hiện tượng bùng nổ sai số và định lý J.H. Wilkinson}
+Bản chất bất ổn định của ma trận Hilbert hình thành trực tiếp từ cấu hình nội dung $H_{ij} = \frac{1}{i+j-1}$. Sự triệt tiêu tiệm cận của khoảng cách biến các vector cột xấp xỉ đồng quy, đưa cấu trúc tiến sát trạng thái phụ thuộc tuyến tính với tính cộng tuyến cực cao. Dưới lăng kính phổ, các trị riêng (Eigenvalues) của hệ này tập trung sát ngưỡng 0, đẩy số điều kiện $\kappa$ tới trị số cực đoan. Theo lý thuyết sai số, $\kappa(A)$ là nhân tố khuếch đại sự sai lệch biểu diễn của phần cứng dấu phẩy động ($\epsilon_{\text{mach}} \approx 10^{-16}$). Đối với ma trận Hilbert $\kappa(H_{10}) \approx 1.6 \times 10^{13}$, quá trình xử lý đại số đánh mất giới hạn 13-14 chữ số thập phân có nghĩa ngay từ các bước khử đầu tiên.
+
+Một đặc trưng quan trọng của phương pháp Khử Gauss là sai số phần dư (Residual Error) thường đạt mức rất thấp hoặc bằng $0.00$, gây ra nhận định sai lệch về độ chính xác của nghiệm. Đây là hệ quả của khái niệm \textbf{Backward Stability} đã được J.H. Wilkinson chứng minh: Mặc dù nghiệm tính toán $\hat{x}$ có sai lệch lớn so với nghiệm chính xác (Forward Error), thuật toán Khử Gauss thực tế đã giải chính xác cho một bài toán nhiễu loạn $(A + \delta A)\hat{x} = b + \delta b$ nằm rất gần bài toán gốc. Tính chất ổn định lùi này khiến phần dư $(A\hat{x} - b)$ bị triệt tiêu về $0$. Ngược lại, phương pháp trực giao QR không có tính chất này và trực tiếp phản ánh sự bất ổn định thông qua sai số dư ở mức $10^{-6}$.
+
+Đối với ma trận SPD có số điều kiện thấp ($\kappa \approx 2.25$), các phương pháp giải đều đạt được độ chính xác tiệm cận giới hạn của kiến trúc 64-bit ($\approx 10^{-16}$), đảm bảm tính vững chắc cho kết quả tính toán.
+
+\subsection*{3.4.3. Kết luận về tính ổn định của thuật toán}
+Kết quả thực nghiệm cho thấy việc \textbf{kiểm định Số Điều Kiện} là bước tiền đề bắt buộc trước khi thực thi các thuật toán đại số ma trận. Các ma trận ill-conditioned như Hilbert có thể làm mất đi tính khả tín của nghiệm ngay cả đối với các hệ phương trình kích thước nhỏ. Điều này khẳng định rằng các tối ưu hóa về mặt mã nguồn hoặc phần cứng không thể bù đắp cho những sai số hệ thống xuất phát từ đặc tính toán học của ma trận đầu vào.
+
+\section*{3.5. Chỉ dẫn lựa chọn giải thuật}
+Dựa trên sự cân bằng giữa chi phí thực thi và độ ổn định số học, nhóm đề xuất quy trình lựa chọn thuật toán giải hệ $Ax = b$ như sau:
+
+\begin{itemize}
+    \item \textbf{Phương pháp Khử (Gauss / LU / Cholesky):} Ưu tiên sử dụng cho các ma trận đặc (Dense Matrices) có kích thước từ nhỏ đến trung bình (dưới 10.000 ẩn số) và có số điều kiện thấp ($\kappa(A) < 10^3$). Đây là lựa chọn tối ưu về mặt tốc độ trong điều kiện ma trận ổn định.
+    \item \textbf{Phương pháp Trực giao (QR):} Áp dụng cho các bài toán yêu cầu độ ổn định số học cao hoặc các hệ phương trình không vuông (mô hình hồi quy, Bình phương tối thiểu). Mặc dù chi phí thời gian cao hơn, QR đảm bảo tính chính xác cho các hệ có nguy cơ nhiễu số học.
+    \item \textbf{Phương pháp Lặp (Gauss-Seidel):} Là lựa chọn hàng đầu cho các ma trận thưa quy mô lớn (Sparse Matrices với tỷ lệ phần tử khác 0 thấp), ma trận đường chéo trội hoặc các hệ phương trình đạo hàm riêng (PDEs). Phương pháp này tối ưu hóa việc sử dụng bộ nhớ và thời gian tính toán thông qua cơ chế hội tụ dần.
+\end{itemize}

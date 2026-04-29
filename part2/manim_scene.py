@@ -2,9 +2,10 @@ from manim import *
 import math
 import numpy as np
 from typing import Union, List, Dict, Optional, Any, Tuple
+import re
 
 # ==============================================================================
-# CẤU HÌNH: Các hằng số, Màu sắc, Thời gian, Thiết lập Camera
+# CẤU HÌNH: Các hằng số, màu sắc, thời gian và thiết lập camera
 # ==============================================================================
 
 CONFIG = {
@@ -12,18 +13,21 @@ CONFIG = {
     "color_original": WHITE,
     "color_orthogonal": GREEN,
     "color_orthonormal": YELLOW,
-    "color_projection": "#00D4FF",  # Màu xanh lơ (Cyan)
-    "color_highlight": "#20B2AA",   # Màu mòng két (Teal)
+    "color_projection": "#00D4FF",  # Màu xanh lơ
+    "color_highlight": "#20B2AA",   # Màu mòng két
     "color_eigenvalue_1": RED,
     "color_eigenvalue_2": BLUE,
-    "color_eigenvalue_3": "#FF00FF", # Màu đỏ cánh sen (Magenta) cho cặp thứ 3
+    "color_eigenvalue_3": "#FF00FF", # Màu đỏ cánh sen cho cặp thứ 3
     "color_matrix_Q": YELLOW,
     "color_matrix_R": "#00FFFF",    # Màu xanh lơ
     "color_matrix_D": ORANGE,
     "color_active_vector": YELLOW,
     "color_dim_vector": GRAY_B,
+    "color_distorted_space": "#FF6B6B",
+    "color_pipeline_arrow": "#FFD700",
+    "color_shadow_line": "#808080",
     
-    # Thời gian (giây)
+    # Thời gian - Đơn vị tính: Giây
     "TRANSITION_TIME": 2.4,
     "pause_intro": 8.0,
     "pause_step": 5.0,
@@ -37,6 +41,10 @@ CONFIG = {
     "pause_formula_short": 2.4,
     "pause_formula_long": 4.2,
     "pause_scene_detail": 3.6,
+    "pause_eigen_filter": 4.0,
+    "pause_pipeline_step": 3.0,
+    "RANDOM_ARROW_COUNT": 24,
+    "PIPELINE_STEP_TIME": 2.0,
     
     # Camera
     "camera_phi_main": 70 * DEGREES,
@@ -48,14 +56,15 @@ CONFIG = {
     "camera_breathing_amplitude": 2 * DEGREES,
     "CAMERA_DISTANCE": 12,
     
-    # Bố cục (Phân vùng)
+    # Thiết lập các phân vùng hiển thị
     "ZONE_TITLE": UP * 3.5,
     "ZONE_SUBTITLE": DOWN * 3.5,
     "ZONE_VISUAL": ORIGIN,
     "ZONE_MATH": UL * 2.5 + LEFT * 1.5,
     
-    # Tỷ lệ, Độ dày nét & Phông chữ
+    # Thông số đồ họa và định dạng văn bản
     "DEFAULT_FONT": "Arial",
+    "MATH_FONT": "Cambria Math",
     "subtitle_font_size": 24,
     "title_font_size": 40,
     "label_3d_font_size": 42,
@@ -77,49 +86,48 @@ CONFIG = {
 }
 
 # ==============================================================================
-# CÁC HÀM TRỢ GIÚP ĐẠI SỐ TUYẾN TÍNH (PYTHON THUẦN)
+# CÁC HÀM TRỢ GIÚP ĐẠI SỐ TUYẾN TÍNH SỬ DỤNG PYTHON THUẦN TÚY
 # ==============================================================================
 
 def calculate_dot_product(vector_a: list, vector_b: list) -> float:
     """
-    Tính tích vô hướng của hai vector.
-    Được sử dụng cho các tính toán hình chiếu và kiểm tra tính trực giao.
+    Cung cấp giá trị định lượng cho các phép toán hình chiếu và kiểm tra 
+    mức độ trực giao giữa hai thành phần không gian.
     """
     return sum(val_a * val_b for val_a, val_b in zip(vector_a, vector_b))
 
 def calculate_euclidean_norm(vector_v: list) -> float:
     """
-    Tính chuẩn Euclid (độ dài) của một vector.
-    Cần thiết cho việc chuẩn hóa các vector về độ dài đơn vị.
+    Xác định độ dài hình học của vector để phục vụ việc chuẩn hóa 
+    các hướng về kích thước đơn vị.
     """
     return math.sqrt(calculate_dot_product(vector_v, vector_v))
 
 def multiply_vector_by_scalar(scalar_c: float, vector_v: list) -> list:
     """
-    Thực hiện phép nhân vector với một số vô hướng.
-    Được sử dụng để thay đổi tỷ lệ vector trong quá trình chiếu và chuẩn hóa.
+    Phóng đại hoặc thu nhỏ vector nhằm điều chỉnh tỷ lệ 
+    trong các phép toán hình chiếu và trực chuẩn hóa.
     """
     return [scalar_c * val_x for val_x in vector_v]
 
 def add_two_vectors(vector_a: list, vector_b: list) -> list:
     """
-    Thực hiện phép cộng từng thành phần của hai vector.
-    Được sử dụng để tổng hợp các thành phần vector trong các dựng hình hình học.
+    Tổng hợp các thành phần không gian riêng biệt để tạo ra 
+    vector kết quả trong các dựng hình hình học 3D.
     """
     return [val_a + val_b for val_a, val_b in zip(vector_a, vector_b)]
 
 def subtract_two_vectors(vector_a: list, vector_b: list) -> list:
     """
-    Thực hiện phép trừ từng thành phần của hai vector (vector_a - vector_b).
-    Thao tác cốt lõi trong Gram-Schmidt để loại bỏ các hình chiếu.
+    Loại bỏ thành phần hình chiếu của vector_b ra khỏi vector_a, 
+    là bước cốt lõi trong thuật toán trực giao hóa Gram-Schmidt.
     """
     return [val_a - val_b for val_a, val_b in zip(vector_a, vector_b)]
 
 def project_vector_onto(vector_u: list, vector_v: list) -> list:
     """
-    Chiếu vector vector_u lên vector vector_v.
-    Trả về thành phần của vector_u nằm theo hướng của vector_v.
-    Xử lý trường hợp vector không để tránh lỗi chia cho 0 trong hoạt ảnh.
+    Tìm thành phần của vector_u nằm theo hướng của vector_v. 
+    Hàm tự động xử lý trường hợp vector không để đảm bảo tính ổn định cho hoạt ảnh.
     """
     dot_vv = calculate_dot_product(vector_v, vector_v)
     if abs(dot_vv) < 1e-9:
@@ -128,8 +136,8 @@ def project_vector_onto(vector_u: list, vector_v: list) -> list:
 
 def calculate_cross_product_3d(vector_a: list, vector_b: list) -> list:
     """
-    Tính tích có hướng của hai vector trong không gian 3 chiều.
-    Hữu ích để tìm các vector pháp tuyến của các mặt phẳng trong không gian 3D.
+    Xác định vector pháp tuyến chung của hai vector trong không gian 3D, 
+    giúp xác định các mặt phẳng trực quan hóa.
     """
     return [
         vector_a[1] * vector_b[2] - vector_a[2] * vector_b[1],
@@ -139,8 +147,8 @@ def calculate_cross_product_3d(vector_a: list, vector_b: list) -> list:
 
 def normalize_to_unit_vector(vector_v: list) -> list:
     """
-    Chuẩn hóa một vector để có độ dài bằng 1.
-    Chuyển đổi các vector trực giao thành các vector trực chuẩn (vector cơ sở).
+    Chuyển đổi một vector trực giao bất kỳ thành vector có độ dài đơn vị, 
+    giúp xây dựng các hệ cơ sở trực chuẩn cho ma trận Q.
     """
     magnitude = calculate_euclidean_norm(vector_v)
     if abs(magnitude) < 1e-9:
@@ -149,8 +157,8 @@ def normalize_to_unit_vector(vector_v: list) -> list:
 
 def multiply_matrices_3x3(matrix_a: list, matrix_b: list) -> list:
     """
-    Nhân hai ma trận 3x3 bằng thuật toán tích vô hướng tiêu chuẩn.
-    Được sử dụng để kiểm chứng kết quả phân rã (QR hoặc PDP^-1).
+    Thực hiện phép nhân ma trận để kiểm chứng tính đúng đắn 
+    của các kết quả phân rã QR hoặc chéo hóa PDP^-1.
     """
     result_matrix = [[0.0] * 3 for _ in range(3)]
     for idx_row in range(3):
@@ -161,8 +169,8 @@ def multiply_matrices_3x3(matrix_a: list, matrix_b: list) -> list:
 
 def calculate_determinant_3x3(matrix_a: list) -> float:
     """
-    Tính định thức của ma trận 3x3 bằng quy tắc Sarrus hoặc khai triển.
-    Cần thiết để giải phương trình đặc trưng trong chéo hóa ma trận.
+    Tính giá trị định thức để giải phương trình đặc trưng, 
+    từ đó tìm ra các trị riêng phục vụ quá trình chéo hóa ma trận.
     """
     return (matrix_a[0][0] * (matrix_a[1][1] * matrix_a[2][2] - matrix_a[1][2] * matrix_a[2][1])
           - matrix_a[0][1] * (matrix_a[1][0] * matrix_a[2][2] - matrix_a[1][2] * matrix_a[2][0])
@@ -181,19 +189,47 @@ class SubtitleManager:
         self.text_object = None
         self.background_object = None
     
-    def update_subtitle_text(self, text_string: str, duration: float = None) -> None:
+    def update_subtitle_text(self, text_string: str, math_substrings: list = None, duration: float = None) -> None:
         """
-        Cập nhật văn bản phụ đề hiển thị trên màn hình.
-        Loại bỏ phụ đề cũ và thay thế bằng phụ đề mới để tránh chồng lấp.
+        Cập nhật nội dung phụ đề bằng MarkupText để hỗ trợ định dạng toán học.
+        Hàm xử lý các lỗi hiển thị ký tự Unicode và chuyển đổi các tag Markup 
+        cho chỉ số trên/dưới.
         """
         if self.current_subtitle_group in self.scene.mobjects:
             self.scene.remove(self.current_subtitle_group)
         
-        self.text_object = Text(
-            text_string, 
-            font_size=CONFIG["subtitle_font_size"], 
-            color=WHITE, 
-            font=CONFIG["DEFAULT_FONT"]
+        processed_text = text_string
+        font_math = CONFIG.get("MATH_FONT", "Cambria Math")
+        color_math = "#FFFF00" # YELLOW
+
+        # 1. Xử lý chuẩn LaTeX TRƯỚC để tránh xung đột với các thuộc tính thẻ HTML sau này
+        # a_{1} -> a<sub>1</sub>
+        processed_text = re.sub(r"_\{([^}]+)\}", r"<sub>\1</sub>", processed_text)
+        processed_text = re.sub(r"\^\{([^}]+)\}", r"<sup>\1</sup>", processed_text)
+        # a_1 -> a<sub>1</sub> (chỉ hỗ trợ 1 ký tự sau dấu _)
+        processed_text = re.sub(r"_([0-9a-zA-Z])", r"<sub>\1</sub>", processed_text)
+        processed_text = re.sub(r"\^([0-9a-zA-Z\-])", r"<sup>\1</sup>", processed_text)
+
+        # 2. Xử lý các ký tự Unicode chỉ số bị hiển thị lỗi thành tag Markup
+        unicode_subs = {"₀":"0","₁":"1","₂":"2","₃":"3","₄":"4","₅":"5","₆":"6","₇":"7","₈":"8","₉":"9"}
+        unicode_sups = {"⁰":"0","¹":"1","²":"2","³":"3","⁴":"4","⁵":"5","⁶":"6","⁷":"7","⁸":"8","⁹":"9","⁻":"-"}
+        for char, val in unicode_subs.items(): processed_text = processed_text.replace(char, f"<sub>{val}</sub>")
+        for char, val in unicode_sups.items(): processed_text = processed_text.replace(char, f"<sup>{val}</sup>")
+
+        # 3. Xử lý math_substrings (Tô màu và đổi font cho các biến đơn lẻ)
+        if math_substrings:
+            for sub in sorted(list(set(math_substrings)), key=len, reverse=True):
+                # Chỉ thay thế nếu sub chưa nằm trong một tag nào đó (đơn giản hóa bằng cách check >)
+                if sub in processed_text:
+                    replacement = f"<span foreground='{color_math}' font_family='{font_math}'>{sub}</span>"
+                    processed_text = processed_text.replace(sub, replacement)
+
+        self.text_object = MarkupText(
+            processed_text,
+            font_size=CONFIG["subtitle_font_size"],
+            font=CONFIG["DEFAULT_FONT"],
+            color=WHITE,
+            justify=True
         )
         self.background_object = BackgroundRectangle(
             self.text_object, 
@@ -221,8 +257,8 @@ def create_billboard_3d_label(
     font_size: int = None
 ) -> MathTex:
     """
-    Tạo nhãn 3D luôn hướng về phía camera (hiệu ứng billboard).
-    Điều này đảm bảo các ký hiệu toán học vẫn có thể đọc được khi camera quay.
+    Tạo nhãn toán học 3D có khả năng tự xoay để luôn hướng về camera, 
+    đảm bảo các công thức luôn dễ đọc trong suốt quá trình xoay camera.
     """
     if font_size is None:
         font_size = CONFIG["label_3d_font_size"]
@@ -258,8 +294,8 @@ def create_grow_arrow_animation(
     color: Union[str, Any] = WHITE
 ) -> tuple:
     """
-    Tạo một đối tượng mũi tên và hoạt ảnh 'mọc ra từ một điểm'.
-    Đóng gói logic hình ảnh để giới thiệu các vector mới.
+    Mô phỏng sự hình thành của vector từ một điểm gốc, 
+    giúp người xem dễ dàng theo dõi sự xuất hiện của các thành phần mới.
     """
     arrow_object = Arrow3D(start=start_point, end=end_point, color=color)
     grow_animation = GrowFromPoint(arrow_object, point=start_point)
@@ -293,8 +329,8 @@ def apply_camera_breathing_effect(
     duration: float
 ) -> None:
     """
-    Áp dụng hiệu ứng rung nhẹ cho camera (hiệu ứng 'thở').
-    Ngăn cảnh phim cảm thấy bị tĩnh trong các phần giải thích dài.
+    Áp dụng hiệu ứng rung nhẹ giúp cảnh phim sinh động và tự nhiên hơn 
+    trong các đoạn giải thích lý thuyết kéo dài.
     """
     scene.move_camera(
         phi=center_phi + amplitude,
@@ -312,11 +348,12 @@ def apply_camera_breathing_effect(
 class MatrixProjectScene(ThreeDScene):
     def setup(self) -> None:
         """
-        Khởi tạo cảnh với bộ quản lý phụ đề và các phân vùng được định nghĩa trước.
-        Thiết lập cấu trúc cơ bản cho các hoạt ảnh gồm nhiều chương.
+        Thiết lập môi trường làm việc ban đầu, cấu hình các phân vùng 
+        và khởi tạo bộ quản lý phụ đề cho toàn bộ hoạt cảnh.
         """
         super().setup()
         self.subtitle_manager = SubtitleManager(self)
+        self.list_dynamic_r_entries = [] # Theo dõi các số thập phân động của ma trận R
         self.layout_zones = {
             "title": CONFIG["ZONE_TITLE"],
             "subtitle": CONFIG["ZONE_SUBTITLE"],
@@ -327,8 +364,8 @@ class MatrixProjectScene(ThreeDScene):
 
     def initialize_layout_boundaries(self) -> None:
         """
-        Tạo các ranh giới vô hình để duy trì tính nhất quán về hình ảnh giữa các cảnh.
-        Chúng đóng vai trò là các neo để đặt tiêu đề và phụ đề.
+        Dựng các ranh giới vô hình giúp duy trì vị trí nhất quán 
+        của tiêu đề và phụ đề trên các khung hình khác nhau.
         """
         self.title_boundary = Line(LEFT * 7, RIGHT * 7).move_to(self.layout_zones["title"]).set_stroke(opacity=0)
         self.subtitle_boundary = Line(LEFT * 7, RIGHT * 7).move_to(self.layout_zones["subtitle"]).set_stroke(opacity=0)
@@ -362,8 +399,8 @@ class MatrixProjectScene(ThreeDScene):
 
     def clear_visual_stage(self) -> None:
         """
-        Xóa khu vực hình ảnh trung tâm trong khi vẫn giữ lại tiêu đề và các công thức toán học tham chiếu.
-        Sử dụng một quy tắc dựa trên tọa độ Y để xác định các đối tượng ở trung tâm.
+        Làm sạch khu vực quan sát trung tâm để chuẩn bị cho các bước minh họa mới, 
+        trong khi vẫn giữ lại các thông tin tham chiếu quan trọng ở các góc.
         """
         mobjects_to_remove = []
         for mobject in self.mobjects:
@@ -371,7 +408,7 @@ class MatrixProjectScene(ThreeDScene):
             if -3 < pos_y < 3:
                 mobjects_to_remove.append(mobject)
         if mobjects_to_remove:
-            self.play(*[FadeOut(m) for m in mobjects_to_remove], run_time=1)
+            self.play(*[FadeOut(mobject) for mobject in mobjects_to_remove], run_time=1)
 
     def create_billboard_label(
         self, 
@@ -379,10 +416,10 @@ class MatrixProjectScene(ThreeDScene):
         position: np.ndarray, 
         color: Union[str, Any] = WHITE, 
         font_size: int = None
-    ) -> MathTex:
+    ) -> VGroup:
         """
-        Tạo một nhãn 3D luôn hướng về phía camera một cách linh hoạt.
-        Khác với phiên bản độc lập bằng cách sử dụng trạng thái camera của chính cảnh phim.
+        Tạo nhãn 3D tích hợp chặt chẽ với trạng thái camera của cảnh phim, 
+        đảm bảo hiển thị chính xác trong các hoạt ảnh phức tạp.
         """
         if font_size is None:
             font_size = CONFIG["label_3d_font_size"]
@@ -394,19 +431,24 @@ class MatrixProjectScene(ThreeDScene):
             background_stroke_width=3, 
             background_stroke_color=BLACK
         )
+        bg = BackgroundRectangle(label_object, color=BLACK, fill_opacity=0.6, buff=0.1)
+        group = VGroup(bg, label_object)
         base_label = label_object.copy()
         
         def update_face_camera_logic(mobject: Mobject) -> None:
             camera_phi = self.camera.get_phi()
             camera_theta = self.camera.get_theta()
-            new_mobject = base_label.copy()
-            new_mobject.rotate(camera_phi, axis=RIGHT)
-            new_mobject.rotate(camera_theta + PI/2, axis=OUT)
-            new_mobject.move_to(position)
-            mobject.become(new_mobject)
+            new_label = base_label.copy()
+            new_label.rotate(camera_phi, axis=RIGHT)
+            new_label.rotate(camera_theta + PI/2, axis=OUT)
+            new_label.move_to(position)
             
-        label_object.add_updater(update_face_camera_logic)
-        return label_object
+            new_bg = BackgroundRectangle(new_label, color=BLACK, fill_opacity=0.6, buff=0.1)
+            new_group = VGroup(new_bg, new_label)
+            mobject.become(new_group)
+            
+        group.add_updater(update_face_camera_logic)
+        return group
 
     def resize_and_reposition(self, mobject: Mobject, target_zone: str = "math") -> None:
         """
@@ -414,7 +456,7 @@ class MatrixProjectScene(ThreeDScene):
         Thường được sử dụng để lưu trữ một phép tính đã hoàn thành để tham khảo sau này.
         """
         self.play(
-            mobject.animate.scale(CONFIG["MATH_SCALE"]).move_to(self.layout_zones[target_zone]),
+            mobject.animate.scale(CONFIG["MATH_SCALE"]).move_to(self.layout_zones.get(target_zone, ORIGIN)),
             run_time=CONFIG["TRANSITION_TIME"]
         )
 
@@ -426,8 +468,8 @@ class MatrixProjectScene(ThreeDScene):
         label_string: str = None
     ) -> tuple:
         """
-        Tạo hoạt ảnh từng bước dựng một vector 3D bằng các thành phần tọa độ của nó.
-        Cung cấp một liên kết sư phạm rõ ràng giữa tọa độ và các mũi tên hình học.
+        Minh họa chi tiết quá trình dựng vector 3D từ các thành phần tọa độ, 
+        giúp xây dựng mối liên kết trực quan giữa số học và hình học không gian.
         """
         coord_x, coord_y, coord_z = coordinates
         axes_origin = axes.get_origin()
@@ -479,8 +521,8 @@ class MatrixProjectScene(ThreeDScene):
 
     def highlight_active_vector(self, active_arrow: Arrow3D, other_arrows: list) -> None:
         """
-        Làm nổi bật vector đang hoạt động bằng cách tăng độ đậm và làm mờ các vector khác.
-        Tập trung sự chú ý của khán giả trong các quá trình lặp lại như Gram-Schmidt.
+        Hướng sự chú ý của người xem vào vector đang được xử lý bằng cách 
+        tăng độ tương phản màu sắc và làm mờ các thành phần phụ.
         """
         animations = [
             active_arrow.animate.set_opacity(1.0).set_color(CONFIG["color_active_vector"]) 
@@ -501,11 +543,103 @@ class MatrixProjectScene(ThreeDScene):
             rate_func=smooth
         )
 
+    def play_subtract_projection_animation(
+        self,
+        axes: ThreeDAxes,
+        coord_target_vector: list,
+        list_coord_basis_vectors: list,
+        color_target: Union[str, Any] = WHITE,
+        color_orthonormal: Union[str, Any] = YELLOW,
+    ) -> Tuple[Arrow3D, list, list]:
+        """
+        Trực quan hóa một bước Gram-Schmidt: chiếu → trừ → chuẩn hóa.
+
+        Quy trình trực quan hóa bao gồm:
+          - Giai đoạn A: Dựng đường chiếu bóng từ vector gốc lên không gian cơ sở hiện tại.
+          - Giai đoạn B: Xác định phần dư trực giao sau khi loại bỏ hình chiếu.
+          - Giai đoạn C: Chuẩn hóa phần dư để thu được vector trực chuẩn q mới.
+
+        Returns:
+            (arrow_orthonormal, coord_orthonormal, list_shadow_lines)
+        """
+        origin = axes.get_origin()
+
+        # Tính tổng tất cả các hình chiếu lên các vector cơ sở đã có
+        coord_total_projection = [0.0, 0.0, 0.0]
+        list_shadow_lines = []
+        for coord_basis in list_coord_basis_vectors:
+            coord_proj_component = project_vector_onto(coord_target_vector, coord_basis)
+            coord_total_projection = add_two_vectors(coord_total_projection, coord_proj_component)
+
+        # Phase A — Vẽ shadow line (đường chiếu)
+        shadow_line = DashedLine(
+            axes.c2p(*coord_total_projection),
+            axes.c2p(*coord_target_vector),
+            color=CONFIG["color_shadow_line"],
+            stroke_width=2.5,
+        )
+        arrow_projection = Arrow3D(
+            start=origin,
+            end=axes.c2p(*coord_total_projection),
+            color=GRAY_B,
+        )
+        self.play(Create(arrow_projection), Create(shadow_line), run_time=1.8)
+        list_shadow_lines.extend([shadow_line, arrow_projection])
+        self.wait(1.0)
+
+        # Phase B — Tính phần dư và dựng đứng
+        coord_residual = subtract_two_vectors(coord_target_vector, coord_total_projection)
+        arrow_residual = Arrow3D(
+            start=origin,
+            end=axes.c2p(*coord_residual),
+            color=CONFIG["color_projection"],
+        )
+        label_residual = self.create_billboard_label(
+            "e", axes.c2p(*coord_residual) + OUT * 0.25,
+            color=CONFIG["color_projection"], font_size=30,
+        )
+        self.play(
+            Create(arrow_residual), FadeIn(label_residual),
+            arrow_projection.animate.set_opacity(0.3),
+            run_time=2.0,
+        )
+        self.wait(0.8)
+
+        # Phase C — Chuẩn hóa phần dư thành vector trực chuẩn
+        coord_orthonormal = normalize_to_unit_vector(coord_residual)
+        arrow_orthonormal = Arrow3D(
+            start=origin,
+            end=axes.c2p(*coord_orthonormal),
+            color=color_orthonormal,
+        )
+        self.play(
+            ReplacementTransform(arrow_residual, arrow_orthonormal),
+            FadeOut(label_residual),
+            run_time=1.6,
+        )
+
+        return arrow_orthonormal, coord_orthonormal, list_shadow_lines
+
 # ==============================================================================
 # LỚP CẢNH CHÍNH (MAIN SCENE)
 # ==============================================================================
 
 class QRAndDiagonalization(MatrixProjectScene):
+    """
+    Cảnh phim chính điều phối quá trình minh họa giải phẫu ma trận 
+    bao gồm phân rã QR và chéo hóa PDP^-1.
+    """
+
+    # ---- Dữ liệu ma trận mặc định ----
+    MATRIX_A_ROWS = [[2, 1, 1], [1, 2, 1], [1, 1, 2]]
+    COORD_ORIGINAL_COL_1 = [2, 1, 1]
+    COORD_ORIGINAL_COL_2 = [1, 2, 1]
+    COORD_ORIGINAL_COL_3 = [1, 1, 2]
+    EIGENVALUE_LAMBDA_1 = 4
+    EIGENVALUE_LAMBDA_23 = 1
+    COORD_EIGENVEC_1 = [1, 1, 1]
+    COORD_EIGENVEC_2 = [-1, 1, 0]
+    COORD_EIGENVEC_3 = [-1, 0, 1]
     def calculate_dynamic_axes_spec(self, list_vectors: list, min_range: float = None) -> dict:
         """
         Tính toán phạm vi đối xứng của các trục tọa độ từ các vector dữ liệu để tránh bị cắt.
@@ -541,7 +675,7 @@ class QRAndDiagonalization(MatrixProjectScene):
         if font_size is None:
             font_size = CONFIG["label_3d_font_size"]
 
-        def build_label_logic() -> MathTex:
+        def build_label_logic() -> VGroup:
             label_object = MathTex(
                 tex_string,
                 color=color,
@@ -552,11 +686,12 @@ class QRAndDiagonalization(MatrixProjectScene):
             label_object.rotate(self.camera.get_phi(), axis=RIGHT)
             label_object.rotate(self.camera.get_theta() + PI / 2, axis=OUT)
             label_object.move_to(arrow_mobject.get_end() + offset_vector)
-            return label_object
+            bg = BackgroundRectangle(label_object, color=BLACK, fill_opacity=0.6, buff=0.1)
+            return VGroup(bg, label_object)
 
         return always_redraw(build_label_logic)
 
-    def display_projection_formula_panel(self) -> MathTex:
+    def display_projection_formula_panel(self) -> VGroup:
         """
         Giới thiệu công thức chiếu vector tổng quát dưới dạng một bảng tham chiếu.
         Cung cấp ngữ cảnh lý thuyết cho quá trình Gram-Schmidt.
@@ -568,10 +703,13 @@ class QRAndDiagonalization(MatrixProjectScene):
             font_size=36,
             color=CONFIG["color_projection"],
         )
-        projection_formula.to_corner(UR, buff=0.45)
-        self.add_fixed_in_frame_mobjects(projection_formula)
-        self.play(Write(projection_formula), run_time=1.7)
-        return projection_formula
+        projection_formula.to_edge(RIGHT, buff=0.5).shift(UP * 1.5)
+        
+        title = Text("Công thức hình chiếu:", font_size=24, font=CONFIG["DEFAULT_FONT"])
+        title.next_to(projection_formula, UP, aligned_edge=LEFT)
+        self.add_fixed_in_frame_mobjects(title, projection_formula)
+        self.play(FadeIn(title), Write(projection_formula), run_time=1.7)
+        return VGroup(title, projection_formula)
 
     def display_orthogonal_formula(self, formula_tex_string: str) -> MathTex:
         """
@@ -666,550 +804,941 @@ class QRAndDiagonalization(MatrixProjectScene):
         self.wait(CONFIG["pause_formula_short"])
         return formula_conclusion
 
-    def construct(self) -> None:
+    def describe_q_orthogonal_properties(
+        self,
+        list_matrix_q_columns: list,
+        anchor_title_mobject: Mobject
+    ) -> VGroup:
         """
-        Luồng xây dựng chính cho toàn bộ dự án.
-        Điều phối trình tự của các chương giáo dục.
+        Trình bày các đặc tính đại số của Q như tính trực giao và độ dài đơn vị, 
+        giúp người xem hiểu lý do tại sao Q^T Q = I.
         """
-        self.render_intro_chapter()
-        self.wait(CONFIG["chapter_gap"])
-        
-        self.render_qr_chapter()
-        self.wait(CONFIG["chapter_gap"])
-        
-        self.render_diagonalization_chapter()
-        self.wait(CONFIG["chapter_gap"])
-        
-        self.render_verification_chapter()
-        self.wait(CONFIG["chapter_gap"])
-        
-        self.render_closing_scene()
-
-    def render_intro_chapter(self) -> None:
-        """
-        Chương 1: Bản chất hình học của Đại số tuyến tính.
-        Minh họa trực quan cách một ma trận biến đổi không gian 2D.
-        """
-        self.set_camera_orientation(phi=0, theta=-90 * DEGREES)
-        
-        # 1. Thiết lập tiêu đề
-        chapter_title = Text("Ý nghĩa hình học của Ma trận", font_size=CONFIG["title_font_size"], font=CONFIG["DEFAULT_FONT"])
-        chapter_title.move_to(self.layout_zones["title"])
-        self.play_with_consistent_timing(Write(chapter_title))
-        
-        self.subtitle_manager.update_subtitle_text("Một vector trong 2D đơn giản là một cặp số (x, y).")
-        
-        # 2. Các trục và lưới tọa độ
-        axes_2d = Axes(
-            x_range=[-4, 4, 1], y_range=[-4, 4, 1],
-            x_length=7, y_length=7,
-            axis_config={"color": GRAY},
-            tips=False
-        ).scale(CONFIG["INTRO_AXIS_SCALE"])
-        coordinate_grid = NumberPlane(
-            x_range=[-4, 4, 1], y_range=[-4, 4, 1],
-            x_length=7, y_length=7,
-            background_line_style={"stroke_color": GRAY, "stroke_width": 1, "stroke_opacity": 0.2}
-        ).scale(CONFIG["INTRO_AXIS_SCALE"])
-        axes_2d.move_to(self.layout_zones["visual"])
-        coordinate_grid.move_to(self.layout_zones["visual"])
-        self.play(Create(coordinate_grid), Create(axes_2d), run_time=CONFIG["INTRO_DRAW_TIME"])
-
-        label_origin = Text("O", font_size=24, font=CONFIG["DEFAULT_FONT"]).next_to(axes_2d.get_origin(), DL, buff=0.08)
-        label_axis_x = Text("x", font_size=24, font=CONFIG["DEFAULT_FONT"]).next_to(axes_2d.c2p(4, 0), DR, buff=0.1)
-        label_axis_y = Text("y", font_size=24, font=CONFIG["DEFAULT_FONT"]).next_to(axes_2d.c2p(0, 4), UL, buff=0.1)
-        self.play(FadeIn(label_origin), FadeIn(label_axis_x), FadeIn(label_axis_y), run_time=1.5)
-        
-        # 3. Vector v
-        arrow_v = Arrow(axes_2d.get_origin(), axes_2d.c2p(1, 1), buff=0, color=CONFIG["color_original"], stroke_width=CONFIG["VEC_STROKE"])
-        label_v = MathTex("v = (1, 1)", color=CONFIG["color_original"], font_size=30, background_stroke_width=2, background_stroke_color=BLACK).next_to(arrow_v, UR, buff=0.1)
-        guide_line_vx = DashedLine(axes_2d.c2p(1, 1), axes_2d.c2p(1, 0), color=GRAY_B)
-        guide_line_vy = DashedLine(axes_2d.c2p(1, 1), axes_2d.c2p(0, 1), color=GRAY_B)
-        
-        self.play(GrowArrow(arrow_v), FadeIn(label_v), run_time=CONFIG["VECTOR_DRAW_TIME"])
-        self.play(Create(guide_line_vx), Create(guide_line_vy), run_time=1.6)
-        self.wait(CONFIG["pause_key"])
-        
-        # 4. Tham chiếu Ma trận A
-        self.subtitle_manager.update_subtitle_text("Ma trận là một bảng số thực hiện phép biến đổi không gian.")
-        matrix_mobject_a = Matrix([[2, 1], [1, 2]], left_bracket="(", right_bracket=")")
-        matrix_mobject_a.set_stroke(width=CONFIG["MATRIX_STROKE"])
-        matrix_mobject_a.get_entries().set_stroke(width=CONFIG["MATRIX_STROKE"])
-        matrix_group = VGroup(MathTex("A = "), matrix_mobject_a).arrange(RIGHT).scale(CONFIG["MATH_SCALE"])
-        matrix_group[0].set_stroke(width=CONFIG["MATRIX_STROKE"])
-        matrix_group.move_to(self.layout_zones["math"])
-        self.play_with_consistent_timing(FadeIn(matrix_group))
-        self.wait(CONFIG["pause_key"])
-        
-        # 5. Phép biến đổi
-        self.subtitle_manager.update_subtitle_text("Khi nhân ma trận A với v, diện mạo không gian và vector bị thay đổi.")
-        transformation_matrix_np = np.array([[2, 1, 0], [1, 2, 0], [0, 0, 1]])
-        guide_line_avx = DashedLine(axes_2d.c2p(3, 3), axes_2d.c2p(3, 0), color=GRAY_B)
-        guide_line_avy = DashedLine(axes_2d.c2p(3, 3), axes_2d.c2p(0, 3), color=GRAY_B)
-        label_av = MathTex("Av = (3, 3)", color=CONFIG["color_highlight"], font_size=30, background_stroke_width=2, background_stroke_color=BLACK).move_to(axes_2d.c2p(3, 3) + UR * 0.25)
-        
-        self.play(
-            ApplyMatrix(transformation_matrix_np, coordinate_grid),
-            ApplyMatrix(transformation_matrix_np, arrow_v),
-            AnimationGroup(
-                ReplacementTransform(guide_line_vx, guide_line_avx),
-                ReplacementTransform(guide_line_vy, guide_line_avy),
-                lag_ratio=0.0
-            ),
-            run_time=CONFIG["VECTOR_TRANSFORM_TIME"]
-        )
-        self.play(TransformMatchingTex(label_v, label_av), run_time=1.6)
-        self.wait(CONFIG["pause_key"])
-        
-        # 6. Giải thích về Tổ hợp tuyến tính
-        self.subtitle_manager.update_subtitle_text("Nhân với ma trận là tổ hợp tuyến tính của các cột: Av = x·c1 + y·c2.")
-        combination_theory_formula = MathTex(
-            r"A \mathbf{v} = 1 \cdot \begin{pmatrix} 2 \\ 1 \end{pmatrix} + 1 \cdot \begin{pmatrix} 1 \\ 2 \end{pmatrix}",
-            " = \\begin{pmatrix} 3 \\\\ 3 \\end{pmatrix}",
+        formula_q_definition = MathTex(
+            r"\|q_i\| = 1,\quad \langle q_i, q_j \rangle = 0\;(i \neq j)",
             font_size=34,
-            background_stroke_width=2,
-            background_stroke_color=BLACK
-        ).next_to(matrix_group, DOWN, buff=0.5)
-        self.play(Write(combination_theory_formula))
-        self.wait(CONFIG["pause_key"])
-        
-        # 7. Dọn dẹp
-        self.play(
-            AnimationGroup(
-                FadeOut(arrow_v), FadeOut(label_av), FadeOut(guide_line_avx), FadeOut(guide_line_avy),
-                FadeOut(matrix_group), FadeOut(combination_theory_formula), FadeOut(coordinate_grid), FadeOut(axes_2d),
-                FadeOut(label_origin), FadeOut(label_axis_x), FadeOut(label_axis_y),
-                FadeOut(chapter_title),
-                lag_ratio=0.04
-            ),
-            run_time=1.8
+            color=CONFIG["color_matrix_Q"],
         )
-    
-    def render_qr_chapter(self) -> None:
-        """
-        Chương 2: Phân rã QR thông qua Gram-Schmidt.
-        Trực quan hóa 3D chi tiết về quá trình trực giao hóa và chuẩn hóa.
-        """
-        # 1. Tiêu đề
-        chapter_title = Text("Phân rã QR: Trực quan hóa Gram-Schmidt", font_size=CONFIG["title_font_size"], font=CONFIG["DEFAULT_FONT"])
-        chapter_title.to_edge(UP, buff=0.2)
-        self.add_fixed_in_frame_mobjects(chapter_title)
-        self.play_with_consistent_timing(Write(chapter_title))
-        
-        # 2. Giới thiệu lý thuyết QR
-        self.subtitle_manager.update_subtitle_text("Mục tiêu: Tách A thành Q (Xoay/Trực chuẩn) và R (Nén/Tam giác).")
-        qr_decomposition_theory = VGroup(
-            Text("Q: Ma trận trực giao (Phép xoay/Trực chuẩn)", font=CONFIG["DEFAULT_FONT"], font_size=24, color=CONFIG["color_matrix_Q"]),
-            Text("R: Ma trận tam giác trên (Nén/Co giãn)", font=CONFIG["DEFAULT_FONT"], font_size=24, color=CONFIG["color_matrix_R"])
-        ).arrange(DOWN, aligned_edge=LEFT, buff=0.4).shift(UP * 0.5)
-        self.add_fixed_in_frame_mobjects(qr_decomposition_theory)
-        self.play(FadeIn(qr_decomposition_theory, shift=UP))
-        self.wait(2)
-        
-        self.subtitle_manager.update_subtitle_text("Ý nghĩa: 'Bẻ thẳng' các vector ban đầu cho vuông góc với nhau.")
-        self.wait(CONFIG["pause_key"])
-        self.play(FadeOut(qr_decomposition_theory))
+        formula_q_definition.next_to(anchor_title_mobject, DOWN, buff=0.35)
+        self.add_fixed_in_frame_mobjects(formula_q_definition)
+        formula_q_definition.set_opacity(0)
 
-        # Ẩn tiêu đề chương trước khi vào sân khấu 3D để tránh che mất nhãn của các trục.
-        self.play(FadeOut(chapter_title), run_time=0.8)
+        matrix_q_symbolic = MathTex(
+            r"Q^T Q = \begin{pmatrix} "
+            r"\langle q_1, q_1 \rangle & \langle q_1, q_2 \rangle & \langle q_1, q_3 \rangle \\ "
+            r"\langle q_2, q_1 \rangle & \langle q_2, q_2 \rangle & \langle q_2, q_3 \rangle \\ "
+            r"\langle q_3, q_1 \rangle & \langle q_3, q_2 \rangle & \langle q_3, q_3 \rangle "
+            r"\end{pmatrix} = I",
+            font_size=30,
+        )
+        matrix_q_symbolic.to_corner(DR, buff=0.45).shift(UP * 0.8)
+        self.add_fixed_in_frame_mobjects(matrix_q_symbolic)
+        matrix_q_symbolic.set_opacity(0)
 
-        # 3. Giữ lại tham chiếu ma trận A ở góc màn hình.
-        matrix_a_reference_mobject = Matrix([[2, 1, 1], [1, 2, 1], [1, 1, 2]], left_bracket="(", right_bracket=")").scale(0.42)
-        matrix_a_display_group = VGroup(MathTex("A = "), matrix_a_reference_mobject).arrange(RIGHT)
-        matrix_a_display_group.to_corner(UL, buff=0.45)
-        self.add_fixed_in_frame_mobjects(matrix_a_display_group)
-        self.play(FadeIn(matrix_a_display_group), run_time=1.2)
-        
-        column_highlight_rect = None
+        matrix_i_numeric = Matrix([
+            ["1", "0", "0"],
+            ["0", "1", "0"],
+            ["0", "0", "1"],
+        ], left_bracket="(", right_bracket=")").scale(0.66)
+        matrix_i_display_group = VGroup(MathTex("Q^T Q = I =", color=CONFIG["color_matrix_Q"]), matrix_i_numeric).arrange(RIGHT, buff=0.18)
+        matrix_i_display_group.to_corner(DL, buff=0.45).shift(UP * 0.8)
+        self.add_fixed_in_frame_mobjects(matrix_i_display_group)
+        matrix_i_display_group.set_opacity(0)
 
-        def highlight_matrix_column(column_index: int) -> None:
-            """Di chuyển khung tập trung vào một cột cụ thể của ma trận A."""
-            nonlocal column_highlight_rect
-            target_rectangle = SurroundingRectangle(matrix_a_reference_mobject.get_columns()[column_index], color=YELLOW, buff=0.06)
-            if column_highlight_rect is None:
-                column_highlight_rect = target_rectangle
-                self.add_fixed_in_frame_mobjects(column_highlight_rect)
-                self.play(Create(column_highlight_rect), run_time=0.5)
-            else:
-                self.play(Transform(column_highlight_rect, target_rectangle), run_time=0.5)
-        
-        # 4. Quá trình Gram-Schmidt trong không gian 3D
-        self.subtitle_manager.update_subtitle_text("Sử dụng Gram-Schmidt để tìm các vector trực chuẩn q1, q2, q3.")
-        
-        # Thiết lập góc nhìn 3D
-        self.set_camera_orientation(phi=CONFIG["camera_phi_main"], theta=CONFIG["camera_theta_main"])
-        val_vector_a1 = [2, 1, 1]
-        val_vector_a2 = [1, 2, 1]
-        val_vector_a3 = [1, 1, 2]
-        axes_specifications = self.calculate_dynamic_axes_spec([val_vector_a1, val_vector_a2, val_vector_a3])
+        # Kích hoạt hiển thị bằng cách thay đổi opacity thay vì FadeIn để tránh lỗi nháy hình
+        self.play(
+            formula_q_definition.animate.set_opacity(1).shift(DOWN * 0.2),
+            run_time=1.2
+        )
+        self.play(
+            matrix_q_symbolic.animate.set_opacity(1).shift(LEFT * 0.2),
+            run_time=1.5
+        )
+        self.wait(CONFIG["pause_formula_long"])
+        self.play(
+            matrix_i_display_group.animate.set_opacity(1).shift(UP * 0.2),
+            run_time=1.4
+        )
+        self.wait(CONFIG["pause_formula_long"])
+
+        diag_entries = VGroup(*[
+            matrix_i_numeric.get_entries()[0], matrix_i_numeric.get_entries()[4], matrix_i_numeric.get_entries()[8]
+        ])
+        self.play(Indicate(diag_entries, color=CONFIG["color_matrix_Q"], scale_factor=1.08), run_time=1.6)
+        self.wait(CONFIG["pause_formula_short"])
+        return VGroup(formula_q_definition, matrix_q_symbolic, matrix_i_display_group)
+
+
+
+    # ==================================================================
+    # construct() — Điều phối toàn bộ kịch bản
+    # ==================================================================
+
+    def construct(self) -> None:
+        """Luồng xây dựng chính: 4 phần / 13 scene theo de_xuat_script.md."""
+        self.render_part1_matrix_storm()
+        self.wait(CONFIG["chapter_gap"])
+        self.render_part2_gram_schmidt()
+        self.wait(CONFIG["chapter_gap"])
+        self.render_part3_eigen_transformation()
+        self.wait(CONFIG["chapter_gap"])
+        self.render_part4_conclusion()
+
+    # ==================================================================
+    # PHẦN 1: Cơn bão Ma trận (Scene 1–2)
+    # ==================================================================
+
+    def render_part1_matrix_storm(self) -> None:
+        """Phần 1: Ma trận A bóp méo không gian 3D."""
+        self._play_scene1_standard_space()
+        self._play_scene2_distortion()
+
+    def _play_scene1_standard_space(self) -> None:
+        """Scene 1: Không gian 3D chuẩn, 3 vector cơ sở e1/e2/e3, hiển thị A."""
+        self.set_camera_orientation(
+            phi=CONFIG["camera_phi_main"],
+            theta=CONFIG["camera_theta_main"],
+        )
+
+        chapter_title_storm = Text(
+            "Phần 1: Cơn bão Ma trận",
+            font_size=CONFIG["title_font_size"],
+            font=CONFIG["DEFAULT_FONT"],
+        )
+        chapter_title_storm.to_edge(UP, buff=0.2)
+        self.add_fixed_in_frame_mobjects(chapter_title_storm)
+        self.play(Write(chapter_title_storm), run_time=CONFIG["TRANSITION_TIME"])
+
+        self.subtitle_manager.update_subtitle_text(
+            "Trong ĐSTT, một ma trận A biểu diễn một phép biến đổi không gian."
+        )
+
+        # Trục tọa độ 3D
+        all_cols = [self.COORD_ORIGINAL_COL_1, self.COORD_ORIGINAL_COL_2, self.COORD_ORIGINAL_COL_3]
+        axes_spec = self.calculate_dynamic_axes_spec(all_cols)
         threed_axes = ThreeDAxes(
-            x_range=axes_specifications["x_range"],
-            y_range=axes_specifications["y_range"],
-            z_range=axes_specifications["z_range"],
-            x_length=axes_specifications["axis_length"],
-            y_length=axes_specifications["axis_length"],
-            z_length=axes_specifications["axis_length"],
+            x_range=axes_spec["x_range"],
+            y_range=axes_spec["y_range"],
+            z_range=axes_spec["z_range"],
+            x_length=axes_spec["axis_length"],
+            y_length=axes_spec["axis_length"],
+            z_length=axes_spec["axis_length"],
             axis_config={"color": GRAY},
         )
         self.play(Create(threed_axes), run_time=2.6)
 
-        axes_bound = axes_specifications["bound"]
-        label_axis_x_3d = self.create_billboard_label("x", threed_axes.c2p(axes_bound + 0.3, 0, 0), color=WHITE, font_size=30)
-        label_axis_y_3d = self.create_billboard_label("y", threed_axes.c2p(0, axes_bound + 0.3, 0), color=WHITE, font_size=30)
-        label_axis_z_3d = self.create_billboard_label("z", threed_axes.c2p(0, 0, axes_bound + 0.3), color=WHITE, font_size=30)
-        label_axis_o_3d = self.create_billboard_label("O", threed_axes.c2p(0, 0, 0) + LEFT * 0.2 + DOWN * 0.2, color=WHITE, font_size=28)
-        axes_labels_group = VGroup(label_axis_x_3d, label_axis_y_3d, label_axis_z_3d, label_axis_o_3d)
+        axes_bound = axes_spec["bound"]
+        label_axis_x = self.create_billboard_label("x", threed_axes.c2p(axes_bound + 0.3, 0, 0), font_size=30)
+        label_axis_y = self.create_billboard_label("y", threed_axes.c2p(0, axes_bound + 0.3, 0), font_size=30)
+        label_axis_z = self.create_billboard_label("z", threed_axes.c2p(0, 0, axes_bound + 0.3), font_size=30)
+        label_axis_origin = self.create_billboard_label("O", threed_axes.c2p(0, 0, 0) + LEFT * 0.2 + DOWN * 0.2, font_size=28)
+        axes_labels_group = VGroup(label_axis_x, label_axis_y, label_axis_z, label_axis_origin)
         self.play(*[FadeIn(label_obj) for label_obj in axes_labels_group], run_time=1.4)
 
-        projection_formula_panel = self.display_projection_formula_panel()
-        self.wait(CONFIG["pause_formula_long"])
+        # 3 vector cơ sở chuẩn
+        origin_point = threed_axes.get_origin()
+        arrow_basis_e1 = Arrow3D(start=origin_point, end=threed_axes.c2p(1, 0, 0), color=RED)
+        arrow_basis_e2 = Arrow3D(start=origin_point, end=threed_axes.c2p(0, 1, 0), color=GREEN)
+        arrow_basis_e3 = Arrow3D(start=origin_point, end=threed_axes.c2p(0, 0, 1), color=BLUE)
+        label_e1 = self.create_billboard_label("e_1", threed_axes.c2p(1, 0, 0) + OUT * 0.2, color=RED, font_size=30)
+        label_e2 = self.create_billboard_label("e_2", threed_axes.c2p(0, 1, 0) + OUT * 0.2, color=GREEN, font_size=30)
+        label_e3 = self.create_billboard_label("e_3", threed_axes.c2p(0, 0, 1) + OUT * 0.2, color=BLUE, font_size=30)
 
-        # Bước 1: Dựng vector a1 chi tiết
-        self.subtitle_manager.update_subtitle_text("Bước 1: Vẽ vector a1 và chuẩn hóa để được q1.")
-        highlight_matrix_column(0)
-        arrow_a1, label_a1, construction_a1 = self.render_detailed_3d_vector(threed_axes, val_vector_a1, color=CONFIG["color_original"], label_string="a_1")
-        self.highlight_active_vector(arrow_a1, [])
-        self.wait(CONFIG["pause_key"])
-        
-        val_vector_q1 = normalize_to_unit_vector(val_vector_a1)
-        arrow_q1 = Arrow3D(start=ORIGIN, end=threed_axes.c2p(*val_vector_q1), color=CONFIG["color_matrix_Q"])
-        label_q1 = self.create_tracking_billboard_label("q_1", arrow_q1, color=CONFIG["color_matrix_Q"], offset_vector=DOWN * 0.55)
-        
         self.play(
-            ReplacementTransform(arrow_a1.copy(), arrow_q1),
-            FadeIn(label_q1),
-            arrow_a1.animate.set_opacity(0.3),
-            FadeOut(construction_a1)
-        )
-        self.highlight_active_vector(arrow_q1, [arrow_a1])
-        self.wait(CONFIG["pause_key"])
-        
-        # Bước 2: Trực giao hóa a2
-        self.subtitle_manager.update_subtitle_text("Bước 2: Tìm phần trực giao của a2 so với q1, sau đó chuẩn hóa.")
-        highlight_matrix_column(1)
-        arrow_a2, label_a2, construction_a2 = self.render_detailed_3d_vector(threed_axes, val_vector_a2, color=CONFIG["color_original"], label_string="a_2")
-        self.highlight_active_vector(arrow_a2, [arrow_a1, arrow_q1])
-
-        formula_step_e2 = self.display_orthogonal_formula(r"e_2 = a_2 - \operatorname{proj}_{q_1}(a_2),\quad q_2=\frac{e_2}{\|e_2\|}")
-        self.wait(CONFIG["pause_formula_long"])
-        
-        # Các đường kẻ hình chiếu
-        val_projection_p1 = project_vector_onto(val_vector_a2, val_vector_q1)
-        projection_line_a2 = DashedLine(threed_axes.c2p(*val_projection_p1), threed_axes.c2p(*val_vector_a2), color=GRAY)
-        self.play(Create(projection_line_a2), run_time=1.8)
-        
-        val_residual_e2 = subtract_two_vectors(val_vector_a2, val_projection_p1)
-        val_vector_q2 = normalize_to_unit_vector(val_residual_e2)
-        arrow_q2 = Arrow3D(start=ORIGIN, end=threed_axes.c2p(*val_vector_q2), color=CONFIG["color_matrix_Q"])
-        label_q2 = self.create_tracking_billboard_label("q_2", arrow_q2, color=CONFIG["color_matrix_Q"], offset_vector=RIGHT * 0.3)
-        self.play(Create(arrow_q2), FadeIn(label_q2), FadeOut(construction_a2), run_time=2.0)
-        self.highlight_active_vector(arrow_q2, [arrow_a1, arrow_a2, arrow_q1])
-        self.play(FadeOut(formula_step_e2), run_time=0.9)
-        self.wait(CONFIG["pause_key"])
-
-        self.subtitle_manager.update_subtitle_text("Bước 3: Tách a3 thành phần nằm trên mặt phẳng q1-q2 và phần trực giao để dựng q3.")
-        highlight_matrix_column(2)
-        arrow_a3, label_a3, construction_a3 = self.render_detailed_3d_vector(threed_axes, val_vector_a3, color=CONFIG["color_original"], label_string="a_3")
-        self.highlight_active_vector(arrow_a3, [arrow_a1, arrow_a2, arrow_q1, arrow_q2])
-        formula_step_e3 = self.display_orthogonal_formula(r"e_3 = a_3 - \operatorname{proj}_{q_1}(a_3) - \operatorname{proj}_{q_2}(a_3)")
-        self.wait(CONFIG["pause_formula_long"])
-
-        val_projection_p31 = project_vector_onto(val_vector_a3, val_vector_q1)
-        val_projection_p32 = project_vector_onto(val_vector_a3, val_vector_q2)
-        val_projection_on_plane = add_two_vectors(val_projection_p31, val_projection_p32)
-        val_residual_e3 = subtract_two_vectors(subtract_two_vectors(val_vector_a3, val_projection_p31), val_projection_p32)
-
-        plane_scaling_factor = 1.45
-        basis_plane_mobject = Polygon(
-            threed_axes.c2p(*add_two_vectors(multiply_vector_by_scalar(plane_scaling_factor, val_vector_q1), multiply_vector_by_scalar(plane_scaling_factor, val_vector_q2))),
-            threed_axes.c2p(*add_two_vectors(multiply_vector_by_scalar(-plane_scaling_factor, val_vector_q1), multiply_vector_by_scalar(plane_scaling_factor, val_vector_q2))),
-            threed_axes.c2p(*add_two_vectors(multiply_vector_by_scalar(-plane_scaling_factor, val_vector_q1), multiply_vector_by_scalar(-plane_scaling_factor, val_vector_q2))),
-            threed_axes.c2p(*add_two_vectors(multiply_vector_by_scalar(plane_scaling_factor, val_vector_q1), multiply_vector_by_scalar(-plane_scaling_factor, val_vector_q2))),
-            color=CONFIG["color_projection"],
-            fill_color=CONFIG["color_projection"],
-            fill_opacity=0.18,
-            stroke_opacity=0.45,
-            stroke_width=2,
+            GrowFromPoint(arrow_basis_e1, origin_point),
+            GrowFromPoint(arrow_basis_e2, origin_point),
+            GrowFromPoint(arrow_basis_e3, origin_point),
+            FadeIn(label_e1), FadeIn(label_e2), FadeIn(label_e3),
+            run_time=2.0,
         )
 
-        arrow_plane_projection = Arrow3D(start=ORIGIN, end=threed_axes.c2p(*val_projection_on_plane), color=GRAY_B)
-        label_plane_projection = self.create_billboard_label("proj_{q_1,q_2}(a_3)", threed_axes.c2p(*val_projection_on_plane) + LEFT * 0.25, color=GRAY_B, font_size=30)
-        residual_projection_line = DashedLine(threed_axes.c2p(*val_projection_on_plane), threed_axes.c2p(*val_vector_a3), color=CONFIG["color_projection"])
-        arrow_u3 = Arrow3D(start=ORIGIN, end=threed_axes.c2p(*val_residual_e3), color=CONFIG["color_projection"])
-        label_u3 = self.create_tracking_billboard_label("u_3", arrow_u3, color=CONFIG["color_projection"], offset_vector=RIGHT * 0.2)
-        self.play(FadeIn(basis_plane_mobject), Create(arrow_plane_projection), FadeIn(label_plane_projection), Create(residual_projection_line), run_time=1.8)
-        self.play(Create(arrow_u3), FadeIn(label_u3), run_time=1.8)
+        # Ma trận A tham chiếu ở góc
+        matrix_a_mobject = Matrix(
+            self.MATRIX_A_ROWS, left_bracket="(", right_bracket=")"
+        ).scale(0.42)
+        matrix_a_display_group = VGroup(MathTex("A = "), matrix_a_mobject).arrange(RIGHT)
+        matrix_a_display_group.to_corner(UL, buff=0.45)
+        self.add_fixed_in_frame_mobjects(matrix_a_display_group)
+        self.play(FadeIn(matrix_a_display_group), run_time=1.2)
+        self.wait(CONFIG["pause_key"])
 
-        val_vector_q3 = normalize_to_unit_vector(val_residual_e3)
-        arrow_q3 = Arrow3D(start=ORIGIN, end=threed_axes.c2p(*val_vector_q3), color=CONFIG["color_matrix_Q"])
-        label_q3 = self.create_tracking_billboard_label("q_3", arrow_q3, color=CONFIG["color_matrix_Q"], offset_vector=LEFT * 0.25)
+        # Lưu references cho Scene 2
+        self._storm_axes = threed_axes
+        self._storm_axes_labels = axes_labels_group
+        self._storm_arrows = [arrow_basis_e1, arrow_basis_e2, arrow_basis_e3]
+        self._storm_labels = [label_e1, label_e2, label_e3]
+        self._storm_matrix_display = matrix_a_display_group
+        self._storm_chapter_title = chapter_title_storm
+
+    def _play_scene2_distortion(self) -> None:
+        """Scene 2: A bóp méo không gian — e1/e2/e3 biến thành a1/a2/a3."""
+        self.subtitle_manager.update_subtitle_text(
+            "Khi tác động A, không gian bị bóp méo. Các trục mất đi tính vuông góc."
+        )
+        threed_axes = self._storm_axes
+        origin_point = threed_axes.get_origin()
+
+        # Tạo các arrow mới tại vị trí cột của A
+        arrow_distorted_col1 = Arrow3D(start=origin_point, end=threed_axes.c2p(*self.COORD_ORIGINAL_COL_1), color=CONFIG["color_original"])
+        arrow_distorted_col2 = Arrow3D(start=origin_point, end=threed_axes.c2p(*self.COORD_ORIGINAL_COL_2), color=CONFIG["color_original"])
+        arrow_distorted_col3 = Arrow3D(start=origin_point, end=threed_axes.c2p(*self.COORD_ORIGINAL_COL_3), color=CONFIG["color_original"])
+        label_col1 = self.create_billboard_label("a_1", threed_axes.c2p(*self.COORD_ORIGINAL_COL_1) + OUT * 0.25, color=CONFIG["color_original"], font_size=30)
+        label_col2 = self.create_billboard_label("a_2", threed_axes.c2p(*self.COORD_ORIGINAL_COL_2) + OUT * 0.25, color=CONFIG["color_original"], font_size=30)
+        label_col3 = self.create_billboard_label("a_3", threed_axes.c2p(*self.COORD_ORIGINAL_COL_3) + OUT * 0.25, color=CONFIG["color_original"], font_size=30)
+
         self.play(
-            ReplacementTransform(arrow_u3, arrow_q3),
-            FadeIn(label_q3),
-            arrow_a3.animate.set_opacity(0.3),
-            FadeOut(label_u3),
-            FadeOut(formula_step_e3),
-            FadeOut(arrow_plane_projection),
-            FadeOut(label_plane_projection),
-            FadeOut(basis_plane_mobject),
-            FadeOut(residual_projection_line),
-            FadeOut(construction_a3),
-            run_time=2.2
+            ReplacementTransform(self._storm_arrows[0], arrow_distorted_col1),
+            ReplacementTransform(self._storm_arrows[1], arrow_distorted_col2),
+            ReplacementTransform(self._storm_arrows[2], arrow_distorted_col3),
+            ReplacementTransform(self._storm_labels[0], label_col1),
+            ReplacementTransform(self._storm_labels[1], label_col2),
+            ReplacementTransform(self._storm_labels[2], label_col3),
+            run_time=CONFIG["VECTOR_TRANSFORM_TIME"],
         )
-        self.highlight_active_vector(arrow_q3, [arrow_a1, arrow_a2, arrow_a3, arrow_q1, arrow_q2])
-        self.wait(CONFIG["pause_scene_detail"])
 
-        self.subtitle_manager.update_subtitle_text("Ma trận R lưu các tích vô hướng ở tam giác trên, còn phía dưới đường chéo là 0.")
-        self.move_camera(
-            phi=CONFIG["camera_phi_topdown"],
-            theta=CONFIG["camera_theta_topdown"],
-            run_time=CONFIG["animation_camera_long"],
+        # Xoay camera nhấn mạnh sự biến dạng
+        self.move_camera(phi=75 * DEGREES, theta=-45 * DEGREES, run_time=CONFIG["animation_camera_long"])
+
+        self.subtitle_manager.update_subtitle_text(
+            "Để kiểm soát ma trận này, chúng ta cần 'giải phẫu' nó."
         )
-        matrix_r_explanation_group = self.describe_r_upper_triangular_structure(
-            [val_vector_a1, val_vector_a2, val_vector_a3],
-            [val_vector_q1, val_vector_q2, val_vector_q3],
-            matrix_a_display_group,
-        )
-        self.move_camera(
-            phi=CONFIG["camera_phi_main"],
-            theta=CONFIG["camera_theta_main"],
-            run_time=CONFIG["animation_camera_long"],
-        )
-        self.play(FadeOut(matrix_r_explanation_group), FadeOut(projection_formula_panel), run_time=1.1)
-        
-        # Dọn dẹp các đối tượng của chương
+        self.wait(CONFIG["pause_key"])
+
+        # Dọn dẹp
         self.play(
             AnimationGroup(
-                FadeOut(threed_axes), FadeOut(arrow_q1), FadeOut(arrow_q2), FadeOut(arrow_q3),
-                FadeOut(arrow_a1), FadeOut(arrow_a2), FadeOut(arrow_a3),
-                FadeOut(label_q1), FadeOut(label_q2), FadeOut(label_q3),
-                FadeOut(label_a1), FadeOut(label_a2), FadeOut(label_a3), FadeOut(projection_line_a2),
-                FadeOut(axes_labels_group), FadeOut(matrix_a_display_group), FadeOut(column_highlight_rect),
-                lag_ratio=0.03
+                FadeOut(arrow_distorted_col1), FadeOut(arrow_distorted_col2), FadeOut(arrow_distorted_col3),
+                FadeOut(label_col1), FadeOut(label_col2), FadeOut(label_col3),
+                FadeOut(self._storm_axes), FadeOut(self._storm_axes_labels),
+                FadeOut(self._storm_matrix_display), FadeOut(self._storm_chapter_title),
+                lag_ratio=0.04,
             ),
-            run_time=2.0
+            run_time=1.8,
         )
 
-    def render_diagonalization_chapter(self) -> None:
-        """
-        Chương 3: Chéo hóa - A = PDP⁻¹.
-        Từng bước tìm các trị riêng và vector riêng.
-        """
-        self.set_camera_orientation(phi=0, theta=-90 * DEGREES)
-        chapter_title = Text("Quy trình chéo hóa", font_size=CONFIG["title_font_size"], font=CONFIG["DEFAULT_FONT"])
-        chapter_title.to_edge(UP, buff=0.2)
-        self.add_fixed_in_frame_mobjects(chapter_title)
-        self.play_with_consistent_timing(Write(chapter_title))
+    # ==================================================================
+    # PHẦN 2: Phân rã QR — Gram-Schmidt (Scene 3–7)
+    # ==================================================================
 
+    def render_part2_gram_schmidt(self) -> None:
+        """Phần 2: Trực quan hóa Gram-Schmidt với split-screen R."""
+        self._play_scene3_split_screen_intro()
+        self._play_scene4_normalize_col1()
+        self._play_scene5_orthogonalize_col2()
+        self._play_scene6_update_r_col2()
+        self._play_scene7_orthogonalize_col3_and_finalize()
+        self._play_scene7_5_analyze_q()
+
+    def _play_scene3_split_screen_intro(self) -> None:
+        """Scene 3: Giới thiệu QR — bên trái: 3 vector a, bên phải: R trống."""
+        chapter_title_qr = Text(
+            "Phần 2: Phân rã QR — Gram-Schmidt",
+            font_size=CONFIG["title_font_size"],
+            font=CONFIG["DEFAULT_FONT"],
+        )
+        chapter_title_qr.to_edge(UP, buff=0.2)
+        self.add_fixed_in_frame_mobjects(chapter_title_qr)
+        self.play(Write(chapter_title_qr), run_time=CONFIG["TRANSITION_TIME"])
+
+        self.subtitle_manager.update_subtitle_text(
+            "Cách thứ nhất: Phân rã QR — xây giàn giáo trực giao bằng Gram-Schmidt."
+        )
+
+        # Lý thuyết QR
+        qr_theory_block = VGroup(
+            Text("Q: Ma trận trực giao (Phép xoay/Trực chuẩn)", font=CONFIG["DEFAULT_FONT"], font_size=24, color=CONFIG["color_matrix_Q"]),
+            Text("R: Ma trận tam giác trên (Nén/Co giãn)", font=CONFIG["DEFAULT_FONT"], font_size=24, color=CONFIG["color_matrix_R"]),
+        ).arrange(DOWN, aligned_edge=LEFT, buff=0.4).shift(UP * 0.5)
+        self.add_fixed_in_frame_mobjects(qr_theory_block)
+        self.play(FadeIn(qr_theory_block, shift=UP))
+        self.wait(2)
+
+        self.subtitle_manager.update_subtitle_text(
+            "Gram-Schmidt 'dọn dẹp' các cột: bẻ thẳng chúng cho vuông góc nhau từng bước."
+        )
+        self.wait(CONFIG["pause_key"])
+        self.play(FadeOut(qr_theory_block), FadeOut(chapter_title_qr), run_time=0.8)
+
+        # Ma trận A tham chiếu ở góc UL
+        matrix_a_ref_mobject = Matrix(self.MATRIX_A_ROWS, left_bracket="(", right_bracket=")").scale(0.42)
+        self._matrix_a_display = VGroup(MathTex("A = "), matrix_a_ref_mobject).arrange(RIGHT)
+        self._matrix_a_display.to_corner(UL, buff=0.45)
+        self.add_fixed_in_frame_mobjects(self._matrix_a_display)
+        self.play(FadeIn(self._matrix_a_display), run_time=1.2)
+        self._matrix_a_ref_mobject = matrix_a_ref_mobject
+
+        # Ma trận R trống (dạng tam giác trên) ở góc UR
+        self._r_entry_values = [["?"] * 3 for _ in range(3)]
+        self._r_entry_values[1][0] = "0"
+        self._r_entry_values[2][0] = "0"
+        self._r_entry_values[2][1] = "0"
+        matrix_r_mobject = Matrix(
+            self._r_entry_values, left_bracket="(", right_bracket=")"
+        ).scale(0.42)
+        self._matrix_r_display = VGroup(MathTex("R = ", color=CONFIG["color_matrix_R"]), matrix_r_mobject).arrange(RIGHT)
+        self._matrix_r_display.to_corner(UR, buff=0.45)
+        self.add_fixed_in_frame_mobjects(self._matrix_r_display)
+        self.play(FadeIn(self._matrix_r_display), run_time=1.2)
+        self._matrix_r_mobject = matrix_r_mobject
+
+        # Highlight cột A
+        self._column_highlight_rect = None
+
+        # Thiết lập 3D
+        self.set_camera_orientation(phi=CONFIG["camera_phi_main"], theta=CONFIG["camera_theta_main"])
+        all_cols = [self.COORD_ORIGINAL_COL_1, self.COORD_ORIGINAL_COL_2, self.COORD_ORIGINAL_COL_3]
+        axes_spec = self.calculate_dynamic_axes_spec(all_cols)
+        self._threed_axes = ThreeDAxes(
+            x_range=axes_spec["x_range"], y_range=axes_spec["y_range"], z_range=axes_spec["z_range"],
+            x_length=axes_spec["axis_length"], y_length=axes_spec["axis_length"], z_length=axes_spec["axis_length"],
+            axis_config={"color": GRAY},
+        )
+        self.play(Create(self._threed_axes), run_time=2.6)
+
+        axes_bound = axes_spec["bound"]
+        label_x = self.create_billboard_label("x", self._threed_axes.c2p(axes_bound + 0.3, 0, 0), font_size=30)
+        label_y = self.create_billboard_label("y", self._threed_axes.c2p(0, axes_bound + 0.3, 0), font_size=30)
+        label_z = self.create_billboard_label("z", self._threed_axes.c2p(0, 0, axes_bound + 0.3), font_size=30)
+        label_origin = self.create_billboard_label("O", self._threed_axes.c2p(0, 0, 0) + LEFT * 0.2 + DOWN * 0.2, font_size=28)
+        self._qr_axes_labels = VGroup(label_x, label_y, label_z, label_origin)
+        self.play(*[FadeIn(label) for label in self._qr_axes_labels], run_time=1.4)
+
+        self._projection_formula_panel = self.display_projection_formula_panel()
+        self.wait(CONFIG["pause_formula_long"])
+
+    def _highlight_matrix_column(self, column_index: int) -> None:
+        """Di chuyển khung tập trung vào một cột cụ thể của ma trận A."""
+        target_rect = SurroundingRectangle(
+            self._matrix_a_ref_mobject.get_columns()[column_index], color=YELLOW, buff=0.06
+        )
+        if self._column_highlight_rect is None:
+            self._column_highlight_rect = target_rect
+            self.add_fixed_in_frame_mobjects(self._column_highlight_rect)
+            self.play(Create(self._column_highlight_rect), run_time=0.5)
+        else:
+            self.play(Transform(self._column_highlight_rect, target_rect), run_time=0.5)
+
+    def _update_r_entry_display(self, row_idx: int, col_idx: int, value_str: str) -> None:
+        """Cập nhật một ô trong ma trận R hiển thị (animate)."""
+        entry_index = row_idx * 3 + col_idx
+        old_entry = self._matrix_r_mobject.get_entries()[entry_index]
+        new_entry = MathTex(value_str, font_size=20, color=CONFIG["color_matrix_R"])
+        new_entry.move_to(old_entry.get_center())
+        self.add_fixed_in_frame_mobjects(new_entry)
+        self.play(
+            FadeOut(old_entry, shift=UP * 0.1), 
+            FadeIn(new_entry, shift=UP * 0.1), 
+            run_time=0.8
+        )
+        self.list_dynamic_r_entries.append(new_entry)
+
+    def _play_scene4_normalize_col1(self) -> None:
+        """Scene 4: a₁ → q₁ bằng chuẩn hóa. Cập nhật R₁₁ = ||a₁||."""
+        self.subtitle_manager.update_subtitle_text(
+            "Bước 1: Giữ nguyên hướng cột đầu, chuẩn hóa về 1 → q₁. Lưu ||a₁|| vào R."
+        )
+        self._highlight_matrix_column(0)
+
+        # Dựng vector a₁
+        arrow_original_col1, label_original_col1, construction_col1 = self.render_detailed_3d_vector(
+            self._threed_axes, self.COORD_ORIGINAL_COL_1,
+            color=CONFIG["color_original"], label_string="a_1",
+        )
+        self.highlight_active_vector(arrow_original_col1, [])
+        self.wait(CONFIG["pause_key"])
+
+        # Chuẩn hóa → q₁
+        coord_orthonormal_col1 = normalize_to_unit_vector(self.COORD_ORIGINAL_COL_1)
+        arrow_orthonormal_col1 = Arrow3D(
+            start=ORIGIN, end=self._threed_axes.c2p(*coord_orthonormal_col1),
+            color=CONFIG["color_matrix_Q"],
+        )
+        label_orthonormal_col1 = self.create_tracking_billboard_label(
+            "q_1", arrow_orthonormal_col1,
+            color=CONFIG["color_matrix_Q"], offset_vector=DOWN * 0.55,
+        )
+
+        self.play(
+            ReplacementTransform(arrow_original_col1.copy(), arrow_orthonormal_col1),
+            FadeIn(label_orthonormal_col1),
+            arrow_original_col1.animate.set_opacity(0.3),
+            FadeOut(construction_col1),
+        )
+        self.highlight_active_vector(arrow_orthonormal_col1, [arrow_original_col1])
+
+        # Cập nhật R₁₁
+        norm_a1 = calculate_euclidean_norm(self.COORD_ORIGINAL_COL_1)
+        self._update_r_entry_display(0, 0, f"{norm_a1:.2f}")
+        self.wait(CONFIG["pause_key"])
+
+        # Lưu references
+        self._arrow_original_col1 = arrow_original_col1
+        self._arrow_orthonormal_col1 = arrow_orthonormal_col1
+        self._label_original_col1 = label_original_col1
+        self._label_orthonormal_col1 = label_orthonormal_col1
+        self._coord_orthonormal_col1 = coord_orthonormal_col1
+
+    def _play_scene5_orthogonalize_col2(self) -> None:
+        """Scene 5: Trừ hình chiếu a₂ lên q₁, dựng phần dư → q₂."""
+        self.subtitle_manager.update_subtitle_text(
+            "Bước 2: Trừ phần 'bóng' của a₂ lên q₁ → phần dư vuông góc → chuẩn hóa thành q₂."
+        )
+        self._highlight_matrix_column(1)
+
+        # Dựng vector a₂
+        arrow_original_col2, label_original_col2, construction_col2 = self.render_detailed_3d_vector(
+            self._threed_axes, self.COORD_ORIGINAL_COL_2,
+            color=CONFIG["color_original"], label_string="a_2",
+        )
+        self.highlight_active_vector(arrow_original_col2, [self._arrow_original_col1, self._arrow_orthonormal_col1])
+
+        formula_step_e2 = self.display_orthogonal_formula(
+            r"e_2 = a_2 - \operatorname{proj}_{q_1}(a_2),\quad q_2=\frac{e_2}{\|e_2\|}"
+        )
+        self.wait(CONFIG["pause_formula_long"])
+
+        # playSubtractProjection
+        arrow_orthonormal_col2, coord_orthonormal_col2, shadow_lines_col2 = self.play_subtract_projection_animation(
+            self._threed_axes,
+            self.COORD_ORIGINAL_COL_2,
+            [self._coord_orthonormal_col1],
+            color_orthonormal=CONFIG["color_matrix_Q"],
+        )
+        label_orthonormal_col2 = self.create_tracking_billboard_label(
+            "q_2", arrow_orthonormal_col2,
+            color=CONFIG["color_matrix_Q"], offset_vector=RIGHT * 0.3,
+        )
+        self.play(FadeIn(label_orthonormal_col2), FadeOut(construction_col2), run_time=1.0)
+
+        self.highlight_active_vector(
+            arrow_orthonormal_col2,
+            [self._arrow_original_col1, arrow_original_col2, self._arrow_orthonormal_col1],
+        )
+        self.play(
+            FadeOut(formula_step_e2),
+            *[FadeOut(shadow_line) for shadow_line in shadow_lines_col2],
+            run_time=0.9,
+        )
+        self.wait(CONFIG["pause_key"])
+
+        # Lưu references
+        self._arrow_original_col2 = arrow_original_col2
+        self._arrow_orthonormal_col2 = arrow_orthonormal_col2
+        self._label_original_col2 = label_original_col2
+        self._label_orthonormal_col2 = label_orthonormal_col2
+        self._coord_orthonormal_col2 = coord_orthonormal_col2
+
+    def _play_scene6_update_r_col2(self) -> None:
+        """Scene 6: Cập nhật R₁₂ và R₂₂ — giải thích ý nghĩa từng entry."""
+        self.subtitle_manager.update_subtitle_text(
+            "R ghi lại lịch sử: a₂ = r₁₂·q₁ + r₂₂·q₂."
+        )
+        val_r12 = calculate_dot_product(self.COORD_ORIGINAL_COL_2, self._coord_orthonormal_col1)
+        val_r22 = calculate_dot_product(self.COORD_ORIGINAL_COL_2, self._coord_orthonormal_col2)
+        self._update_r_entry_display(0, 1, f"{val_r12:.2f}")
+        self._update_r_entry_display(1, 1, f"{val_r22:.2f}")
+        self.wait(CONFIG["pause_key"])
+
+    def _play_scene7_orthogonalize_col3_and_finalize(self) -> None:
+        """Scene 7: Trừ chiếu a₃ trên (q₁, q₂) → q₃. Cập nhật cột 3 R. Giải thích tam giác trên."""
+        self.subtitle_manager.update_subtitle_text(
+            "Bước 3: Trừ cả hai 'bóng' trên q₁ và q₂ khỏi a₃ → chuẩn hóa thành q₃."
+        )
+        self._highlight_matrix_column(2)
+
+        # Dựng vector a₃
+        arrow_original_col3, label_original_col3, construction_col3 = self.render_detailed_3d_vector(
+            self._threed_axes, self.COORD_ORIGINAL_COL_3,
+            color=CONFIG["color_original"], label_string="a_3",
+        )
+        self.highlight_active_vector(
+            arrow_original_col3,
+            [self._arrow_original_col1, self._arrow_original_col2, self._arrow_orthonormal_col1, self._arrow_orthonormal_col2],
+        )
+
+        formula_step_e3 = self.display_orthogonal_formula(
+            r"e_3 = a_3 - \operatorname{proj}_{q_1}(a_3) - \operatorname{proj}_{q_2}(a_3)"
+        )
+        self.wait(CONFIG["pause_formula_long"])
+
+        # Mặt phẳng (q₁, q₂)
+        plane_scale = 1.45
+        coord_q1 = self._coord_orthonormal_col1
+        coord_q2 = self._coord_orthonormal_col2
+        basis_plane = Polygon(
+            self._threed_axes.c2p(*add_two_vectors(multiply_vector_by_scalar(plane_scale, coord_q1), multiply_vector_by_scalar(plane_scale, coord_q2))),
+            self._threed_axes.c2p(*add_two_vectors(multiply_vector_by_scalar(-plane_scale, coord_q1), multiply_vector_by_scalar(plane_scale, coord_q2))),
+            self._threed_axes.c2p(*add_two_vectors(multiply_vector_by_scalar(-plane_scale, coord_q1), multiply_vector_by_scalar(-plane_scale, coord_q2))),
+            self._threed_axes.c2p(*add_two_vectors(multiply_vector_by_scalar(plane_scale, coord_q1), multiply_vector_by_scalar(-plane_scale, coord_q2))),
+            color=CONFIG["color_projection"], fill_color=CONFIG["color_projection"],
+            fill_opacity=0.18, stroke_opacity=0.45, stroke_width=2,
+        )
+        self.play(FadeIn(basis_plane), run_time=1.2)
+
+        # playSubtractProjection
+        arrow_orthonormal_col3, coord_orthonormal_col3, shadow_lines_col3 = self.play_subtract_projection_animation(
+            self._threed_axes,
+            self.COORD_ORIGINAL_COL_3,
+            [coord_q1, coord_q2],
+            color_orthonormal=CONFIG["color_matrix_Q"],
+        )
+        label_orthonormal_col3 = self.create_tracking_billboard_label(
+            "q_3", arrow_orthonormal_col3,
+            color=CONFIG["color_matrix_Q"], offset_vector=LEFT * 0.25,
+        )
+        self.play(
+            FadeIn(label_orthonormal_col3),
+            arrow_original_col3.animate.set_opacity(0.3),
+            FadeOut(formula_step_e3), FadeOut(basis_plane), FadeOut(construction_col3),
+            *[FadeOut(shadow_line) for shadow_line in shadow_lines_col3],
+            run_time=2.0,
+        )
+
+        self.highlight_active_vector(
+            arrow_orthonormal_col3,
+            [self._arrow_original_col1, self._arrow_original_col2, arrow_original_col3,
+             self._arrow_orthonormal_col1, self._arrow_orthonormal_col2],
+        )
+
+        # Cập nhật cột 3 của R
+        val_r13 = calculate_dot_product(self.COORD_ORIGINAL_COL_3, coord_q1)
+        val_r23 = calculate_dot_product(self.COORD_ORIGINAL_COL_3, coord_q2)
+        val_r33 = calculate_dot_product(self.COORD_ORIGINAL_COL_3, coord_orthonormal_col3)
+        self._update_r_entry_display(0, 2, f"{val_r13:.2f}")
+        self._update_r_entry_display(1, 2, f"{val_r23:.2f}")
+        self._update_r_entry_display(2, 2, f"{val_r33:.2f}")
+
+        self.subtitle_manager.update_subtitle_text(
+            "R tam giác trên: q₃ sinh sau cùng, không can thiệp quá khứ của a₁, a₂."
+        )
+        self.wait(CONFIG["pause_scene_detail"])
+
+        # Lưu references để dùng cho scene 7.5
+        self._arrow_orthonormal_col3 = arrow_orthonormal_col3
+        self._coord_orthonormal_col3 = coord_orthonormal_col3
+        self._label_orthonormal_col3 = label_orthonormal_col3
+        self._arrow_original_col3 = arrow_original_col3
+        self._label_original_col3 = label_original_col3
+
+    def _play_scene7_5_analyze_q(self) -> None:
+        """Scene 7.5: Giải phẫu Q — Hệ trục trực chuẩn và Q^T Q = I."""
+        self.subtitle_manager.update_subtitle_text(
+            "Nhìn lại ma trận Q: Các cột của nó tạo thành một hệ trục trực chuẩn hoàn hảo.",
+            math_substrings=["Q"]
+        )
+        
+        chapter_title_q = Text(
+            "Giải phẫu Q — Hệ trục trực chuẩn",
+            font_size=CONFIG["title_font_size"],
+            font=CONFIG["DEFAULT_FONT"],
+        )
+        chapter_title_q.to_edge(UP, buff=0.2)
+        self.add_fixed_in_frame_mobjects(chapter_title_q)
+        self.play(FadeIn(chapter_title_q, shift=DOWN))
+
+        # Dọn dẹp các đối tượng từ Scene 7 để chuẩn bị cho bảng phân tích mới
+        scene7_leftovers = [
+            self._matrix_a_display, self._matrix_r_display,
+            self._column_highlight_rect, self._projection_formula_panel,
+            self._arrow_original_col1, self._arrow_original_col2, self._arrow_original_col3,
+            self._label_original_col1, self._label_original_col2, self._label_original_col3,
+            *self.list_dynamic_r_entries, # Dọn dẹp triệt để các số thập phân động
+        ]
+        fadeout_animations = [FadeOut(obj) for obj in scene7_leftovers if obj is not None]
+        if fadeout_animations:
+            self.play(*fadeout_animations, run_time=1.2)
+
+        list_q_cols = [
+            self._coord_orthonormal_col1,
+            self._coord_orthonormal_col2,
+            self._coord_orthonormal_col3
+        ]
+
+        q_analysis_group = self.describe_q_orthogonal_properties(
+            list_matrix_q_columns=list_q_cols,
+            anchor_title_mobject=chapter_title_q
+        )
+
+        self.subtitle_manager.update_subtitle_text(
+            "Mọi cột đều có độ dài bằng 1 và vuông góc với nhau. Đây chính là bản chất của Q.",
+            math_substrings=["1", "Q"]
+        )
+        self.wait(CONFIG["pause_scene_detail"])
+
+        self.play(FadeOut(q_analysis_group), FadeOut(chapter_title_q), run_time=1.5)
+
+        # Dọn dẹp cuối phần 2
+        # Lưu ý: Các đối tượng đã bị FadeOut ở đầu scene 7.5 (ma trận A, R,
+        # highlight, panel, arrows/labels gốc) được loại khỏi danh sách này
+        # để tránh lỗi "Mobject not found".
+        self.play(
+            AnimationGroup(
+                FadeOut(self._threed_axes),
+                FadeOut(self._arrow_orthonormal_col1), FadeOut(self._arrow_orthonormal_col2), FadeOut(self._arrow_orthonormal_col3),
+                FadeOut(self._label_orthonormal_col1), FadeOut(self._label_orthonormal_col2), FadeOut(self._label_orthonormal_col3),
+                FadeOut(self._qr_axes_labels),
+                lag_ratio=0.03,
+            ),
+            run_time=2.0,
+        )
+
+    # ==================================================================
+    # PHẦN 3: Chéo hóa — Trị riêng & Vector riêng (Scene 8–11)
+    # ==================================================================
+
+    def render_part3_eigen_transformation(self) -> None:
+        """Phần 3: Tìm eigenvectors, xây đường ống PDP⁻¹."""
+        self._play_scene8_restore_distorted_space()
+        self._play_scene9_filter_eigenvectors()
+        self._play_scene10_build_pdp_matrices()
+        self._play_scene11_pipeline_visualization()
+
+    def _play_scene8_restore_distorted_space(self) -> None:
+        """Scene 8: Phục hồi không gian bóp méo, đặt câu hỏi về 'bộ xương bất biến'."""
+        self.set_camera_orientation(phi=0, theta=-90 * DEGREES)
+
+        chapter_title_eigen = Text(
+            "Phần 3: Chéo hóa — Vector riêng",
+            font_size=CONFIG["title_font_size"],
+            font=CONFIG["DEFAULT_FONT"],
+        )
+        chapter_title_eigen.to_edge(UP, buff=0.2)
+        self.add_fixed_in_frame_mobjects(chapter_title_eigen)
+        self.play(Write(chapter_title_eigen), run_time=CONFIG["TRANSITION_TIME"])
+        self._chapter_title_eigen = chapter_title_eigen
+
+        self.subtitle_manager.update_subtitle_text(
+            "QR cho hệ trục đẹp, nhưng không triệt tiêu biến dạng. Có 'bộ xương' nào miễn nhiễm?"
+        )
+        self.wait(CONFIG["pause_key"])
+
+    def _play_scene9_filter_eigenvectors(self) -> None:
+        """Scene 9: Lọc eigenvectors — các mũi tên ngẫu nhiên biến mất, chỉ còn v₁/v₂/v₃."""
+        self.subtitle_manager.update_subtitle_text(
+            "Trị riêng λ: giá trị mà tại đó A chỉ co giãn vector, không xoay (Av = λv).",
+            math_substrings=["λ", "A"]
+        )
+
+        # Phương trình đặc trưng
         wait_time_fast = 1.6
         run_time_fast = 1.5
 
-        self.subtitle_manager.update_subtitle_text("Đầu tiên ta giải phương trình đặc trưng để tìm các trị riêng.")
-        formula_char_eq_start = MathTex(r"\det(A - \lambda I) = 0", font_size=46).shift(UP * 1.4)
-        formula_char_eq_det = MathTex(r"\begin{vmatrix} 2-\lambda & 1 & 1 \\ 1 & 2-\lambda & 1 \\ 1 & 1 & 2-\lambda \end{vmatrix} = 0", font_size=40).shift(UP * 1.4)
-        formula_char_eq_poly = MathTex(r"(2-\lambda)^3 - 3(2-\lambda) + 2 = 0", font_size=40).shift(UP * 1.4)
-        formula_char_eq_factored = MathTex(r"-(\lambda - 4)(\lambda - 1)^2 = 0", font_size=46).shift(UP * 1.4)
-        formula_eigenvalues_result = MathTex(
-            r"\lambda_1 = ", "4", r",\; \lambda_2 = ", "1", r",\; \lambda_3 = ", "1",
+        formula_char_eq = MathTex(r"\det(A - \lambda I) = 0", font_size=46).shift(UP * 1.4)
+        formula_char_det = MathTex(
+            r"\begin{vmatrix} 2-\lambda & 1 & 1 \\ 1 & 2-\lambda & 1 \\ 1 & 1 & 2-\lambda \end{vmatrix} = 0",
             font_size=40,
-            color=YELLOW
+        ).shift(UP * 1.4)
+        formula_char_factored = MathTex(r"-(\lambda - 4)(\lambda - 1)^2 = 0", font_size=46).shift(UP * 1.4)
+        formula_eigenvalues = MathTex(
+            r"\lambda_1 = ", "4", r",\; \lambda_2 = ", "1", r",\; \lambda_3 = ", "1",
+            font_size=40, color=YELLOW,
         ).shift(UP * 1.4)
 
-        self.play(Write(formula_char_eq_start))
+        self.play(Write(formula_char_eq))
         self.wait(wait_time_fast)
-        self.play(ReplacementTransform(formula_char_eq_start, formula_char_eq_det), run_time=run_time_fast)
+        self.play(ReplacementTransform(formula_char_eq, formula_char_det), run_time=run_time_fast)
         self.wait(wait_time_fast)
-        self.play(ReplacementTransform(formula_char_eq_det, formula_char_eq_poly), run_time=run_time_fast)
+        self.play(ReplacementTransform(formula_char_det, formula_char_factored), run_time=run_time_fast)
         self.wait(wait_time_fast)
-        self.play(ReplacementTransform(formula_char_eq_poly, formula_char_eq_factored), run_time=run_time_fast)
-        self.wait(wait_time_fast)
-        self.play(ReplacementTransform(formula_char_eq_factored, formula_eigenvalues_result), run_time=run_time_fast)
+        self.play(ReplacementTransform(formula_char_factored, formula_eigenvalues), run_time=run_time_fast)
         self.wait(0.8)
-        self.play(formula_eigenvalues_result.animate.next_to(chapter_title, DOWN, buff=0.35), run_time=1.2)
+        self.play(formula_eigenvalues.animate.next_to(self._chapter_title_eigen, DOWN, buff=0.35), run_time=1.2)
 
-        self.subtitle_manager.update_subtitle_text("Với λ1 = 4, ta đi qua dạng bậc thang để thấy rõ ràng điều kiện x=y=z.")
-        formula_eigenvector_l1_solution = self.display_row_echelon_steps(
+        # Tìm vector riêng λ₁ = 4
+        self.subtitle_manager.update_subtitle_text(
+            "Với λ₁ = 4: giải (A − 4I)v = 0 → v₁ = (1,1,1).",
+            math_substrings=["λ₁ = 4", "(A − 4I)v = 0", "v₁ = (1,1,1)"]
+        )
+        formula_eigvec_l1 = self.display_row_echelon_steps(
             r"(A - 4I)\mathbf{v}=0",
             r"\left[\begin{array}{ccc|c}-2&1&1&0\\1&-2&1&0\\1&1&-2&0\end{array}\right]\sim"
             r"\left[\begin{array}{ccc|c}1&0&-1&0\\0&1&-1&0\\0&0&0&0\end{array}\right]",
-            r"x=z,\;y=z\Rightarrow x=y=z\Rightarrow \mathbf{v}_1=(1,1,1)",
+            r"x=z,\;y=z\Rightarrow \mathbf{v}_1=(1,1,1)",
             CONFIG["color_eigenvalue_1"],
         )
 
-        self.subtitle_manager.update_subtitle_text("Với λ2 = λ3 = 1, dạng bậc thang cho thấy không gian nghiệm có 2 bậc tự do.")
-        self.play(formula_eigenvector_l1_solution.animate.shift(UP * 0.05), run_time=0.6)
-        formula_eigenvector_l23_solution = self.display_row_echelon_steps(
+        # Tìm vector riêng λ₂ = λ₃ = 1
+        self.subtitle_manager.update_subtitle_text(
+            "Với λ₂ = λ₃ = 1: giải (A − I)v = 0 → v₂ = (−1,1,0), v₃ = (−1,0,1).",
+            math_substrings=["λ₂ = λ₃ = 1", "(A − I)v = 0", "v₂ = (−1,1,0)", "v₃ = (−1,0,1)"]
+        )
+        # Dịch chuyển khối phương trình lên trên để nhường không gian cho bước tiếp theo
+        self.play(formula_eigvec_l1.animate.shift(UP * 1.2), run_time=0.6)
+        formula_eigvec_l23 = self.display_row_echelon_steps(
             r"(A-I)\mathbf{v}=0",
             r"\left[\begin{array}{ccc|c}1&1&1&0\\1&1&1&0\\1&1&1&0\end{array}\right]\sim"
             r"\left[\begin{array}{ccc|c}1&1&1&0\\0&0&0&0\\0&0&0&0\end{array}\right]",
-            r"x+y+z=0\Rightarrow \dim E_{\lambda=1}=2,\;\mathbf{v}_2=(-1,1,0),\;\mathbf{v}_3=(-1,0,1)",
+            r"x+y+z=0\Rightarrow \mathbf{v}_2=(-1,1,0),\;\mathbf{v}_3=(-1,0,1)",
             CONFIG["color_eigenvalue_2"],
         )
 
-        self.subtitle_manager.update_subtitle_text("Từ đó thu được ba vector riêng để dựng ma trận P.")
+        # Hiển thị 3 vector riêng
+        self.subtitle_manager.update_subtitle_text(
+            "Đó là các vector riêng — A không bẻ cong chúng, chỉ kéo dãn với hệ số λ.",
+            math_substrings=["A", "λ"]
+        )
         label_v1 = MathTex(r"v_1 = ", color=CONFIG["color_eigenvalue_1"])
-        matrix_v1_vec = Matrix([[1], [1], [1]], left_bracket="(", right_bracket=")")
-        matrix_v1_vec.get_entries().set_color(CONFIG["color_eigenvalue_1"])
-        v1_display_group = VGroup(label_v1, matrix_v1_vec).arrange(RIGHT)
+        mat_v1 = Matrix([[1], [1], [1]], left_bracket="(", right_bracket=")")
+        mat_v1.get_entries().set_color(CONFIG["color_eigenvalue_1"])
+        v1_group = VGroup(label_v1, mat_v1).arrange(RIGHT)
 
         label_v2 = MathTex(r"v_2 = ", color=CONFIG["color_eigenvalue_2"])
-        matrix_v2_vec = Matrix([[-1], [1], [0]], left_bracket="(", right_bracket=")")
-        matrix_v2_vec.get_entries().set_color(CONFIG["color_eigenvalue_2"])
-        v2_display_group = VGroup(label_v2, matrix_v2_vec).arrange(RIGHT)
+        mat_v2 = Matrix([[-1], [1], [0]], left_bracket="(", right_bracket=")")
+        mat_v2.get_entries().set_color(CONFIG["color_eigenvalue_2"])
+        v2_group = VGroup(label_v2, mat_v2).arrange(RIGHT)
 
         label_v3 = MathTex(r"v_3 = ", color=CONFIG["color_eigenvalue_3"])
-        matrix_v3_vec = Matrix([[-1], [0], [1]], left_bracket="(", right_bracket=")")
-        matrix_v3_vec.get_entries().set_color(CONFIG["color_eigenvalue_3"])
-        v3_display_group = VGroup(label_v3, matrix_v3_vec).arrange(RIGHT)
+        mat_v3 = Matrix([[-1], [0], [1]], left_bracket="(", right_bracket=")")
+        mat_v3.get_entries().set_color(CONFIG["color_eigenvalue_3"])
+        v3_group = VGroup(label_v3, mat_v3).arrange(RIGHT)
 
-        eigenvectors_display_group = VGroup(v1_display_group, v2_display_group, v3_display_group).arrange(RIGHT, buff=0.8).scale(0.9).move_to(ORIGIN + UP * 0.1)
-        self.play(FadeOut(formula_eigenvector_l23_solution), FadeIn(eigenvectors_display_group, shift=UP), run_time=1.4)
+        eigenvecs_group = VGroup(v1_group, v2_group, v3_group).arrange(RIGHT, buff=0.8).scale(0.9).move_to(ORIGIN + UP * 0.1)
+        self.play(FadeOut(formula_eigvec_l1), FadeOut(formula_eigvec_l23), FadeIn(eigenvecs_group, shift=UP), run_time=1.4)
         self.wait(wait_time_fast)
 
-        self.subtitle_manager.update_subtitle_text("Hiện khung rỗng của P và D, sau đó để vector và trị riêng bay vào vị trí.")
-        matrix_mobject_p = Matrix([[1, -1, -1], [1, 1, 0], [1, 0, 1]], left_bracket="(", right_bracket=")")
-        matrix_mobject_d = Matrix([[4, 0, 0], [0, 1, 0], [0, 0, 1]], left_bracket="(", right_bracket=")")
-        matrix_mobject_p.get_entries().set_opacity(0)
-        matrix_mobject_d.get_entries().set_opacity(0)
+        # Lưu references
+        self._formula_eigenvalues = formula_eigenvalues
+        self._eigenvecs_group = eigenvecs_group
+        self._mat_v1 = mat_v1
+        self._mat_v2 = mat_v2
+        self._mat_v3 = mat_v3
 
-        matrix_p_group = VGroup(MathTex("P = "), matrix_mobject_p).arrange(RIGHT)
-        matrix_d_group = VGroup(MathTex("D = "), matrix_mobject_d).arrange(RIGHT)
-        matrices_display_group = VGroup(matrix_p_group, matrix_d_group).arrange(RIGHT, buff=1.0).shift(DOWN * 2.0)
+    def _play_scene10_build_pdp_matrices(self) -> None:
+        """Scene 10: Xây dựng P (cột = vector riêng) và D (đường chéo λ)."""
+        self.subtitle_manager.update_subtitle_text(
+            "P gom vector riêng thành cột, D đặt trị riêng trên đường chéo → A = PDP⁻¹.",
+            math_substrings=["A", "P", "D", "⁻¹"]
+        )
+
+        matrix_p_mobject = Matrix(
+            [[1, -1, -1], [1, 1, 0], [1, 0, 1]],
+            left_bracket="(", right_bracket=")",
+        )
+        matrix_d_mobject = Matrix(
+            [[4, 0, 0], [0, 1, 0], [0, 0, 1]],
+            left_bracket="(", right_bracket=")",
+        )
+        # Khởi tạo các entries với opacity=0 để tạo hoạt ảnh sao chép từ vector riêng
+        matrix_p_mobject.get_entries().set_opacity(0)
+        matrix_d_mobject.get_entries().set_opacity(0)
+
+        matrix_p_group = VGroup(MathTex("P = "), matrix_p_mobject).arrange(RIGHT)
+        matrix_d_group = VGroup(MathTex("D = "), matrix_d_mobject).arrange(RIGHT)
+        pd_display = VGroup(matrix_p_group, matrix_d_group).arrange(RIGHT, buff=1.0).shift(DOWN * 2.0)
 
         self.play(
-            FadeIn(matrix_p_group[0]), FadeIn(matrix_mobject_p.get_brackets()),
-            FadeIn(matrix_d_group[0]), FadeIn(matrix_mobject_d.get_brackets()),
-            run_time=1.4
+            FadeIn(matrix_p_group[0]), FadeIn(matrix_p_mobject.get_brackets()),
+            FadeIn(matrix_d_group[0]), FadeIn(matrix_d_mobject.get_brackets()),
+            run_time=1.4,
         )
         self.wait(1.0)
 
-        p_column_mobjects = matrix_mobject_p.get_columns()
-        p_column_mobjects[0].set_color(CONFIG["color_eigenvalue_1"]).set_opacity(0)
-        p_column_mobjects[1].set_color(CONFIG["color_eigenvalue_2"]).set_opacity(0)
-        p_column_mobjects[2].set_color(CONFIG["color_eigenvalue_3"]).set_opacity(0)
+        # Animate: copy eigenvectors → cột P
+        p_cols = matrix_p_mobject.get_columns()
+        p_cols[0].set_color(CONFIG["color_eigenvalue_1"]).set_opacity(0)
+        p_cols[1].set_color(CONFIG["color_eigenvalue_2"]).set_opacity(0)
+        p_cols[2].set_color(CONFIG["color_eigenvalue_3"]).set_opacity(0)
 
-        self.play(
-            TransformFromCopy(matrix_v1_vec.get_entries(), p_column_mobjects[0].set_opacity(1)),
-            run_time=1.1
-        )
-        self.play(
-            TransformFromCopy(matrix_v2_vec.get_entries(), p_column_mobjects[1].set_opacity(1)),
-            run_time=1.1
-        )
-        self.play(
-            TransformFromCopy(matrix_v3_vec.get_entries(), p_column_mobjects[2].set_opacity(1)),
-            run_time=1.1
-        )
-        self.play(FadeOut(eigenvectors_display_group), run_time=0.8)
+        self.play(TransformFromCopy(self._mat_v1.get_entries(), p_cols[0].set_opacity(1)), run_time=1.1)
+        self.play(TransformFromCopy(self._mat_v2.get_entries(), p_cols[1].set_opacity(1)), run_time=1.1)
+        self.play(TransformFromCopy(self._mat_v3.get_entries(), p_cols[2].set_opacity(1)), run_time=1.1)
+        self.play(FadeOut(self._eigenvecs_group), run_time=0.8)
         self.wait(0.6)
 
-        d_diagonal_entries = VGroup(matrix_mobject_d.get_entries()[0], matrix_mobject_d.get_entries()[4], matrix_mobject_d.get_entries()[8])
-        d_diagonal_entries[0].set_color(CONFIG["color_eigenvalue_1"]).set_opacity(1)
-        d_diagonal_entries[1].set_color(CONFIG["color_eigenvalue_2"]).set_opacity(1)
-        d_diagonal_entries[2].set_color(CONFIG["color_eigenvalue_3"]).set_opacity(1)
-        d_zero_entries = VGroup(*[matrix_mobject_d.get_entries()[idx] for idx in [1, 2, 3, 5, 6, 7]])
-        d_zero_entries.set_opacity(1)
+        # Animate: copy eigenvalues → đường chéo D
+        d_diag = VGroup(matrix_d_mobject.get_entries()[0], matrix_d_mobject.get_entries()[4], matrix_d_mobject.get_entries()[8])
+        d_diag[0].set_color(CONFIG["color_eigenvalue_1"]).set_opacity(1)
+        d_diag[1].set_color(CONFIG["color_eigenvalue_2"]).set_opacity(1)
+        d_diag[2].set_color(CONFIG["color_eigenvalue_3"]).set_opacity(1)
+        d_zeros = VGroup(*[matrix_d_mobject.get_entries()[idx] for idx in [1, 2, 3, 5, 6, 7]])
+        d_zeros.set_opacity(1)
 
         self.play(
-            TransformFromCopy(formula_eigenvalues_result[1], d_diagonal_entries[0]),
-            TransformFromCopy(formula_eigenvalues_result[3], d_diagonal_entries[1]),
-            TransformFromCopy(formula_eigenvalues_result[5], d_diagonal_entries[2]),
-            FadeIn(d_zero_entries),
-            run_time=1.8
+            TransformFromCopy(self._formula_eigenvalues[1], d_diag[0]),
+            TransformFromCopy(self._formula_eigenvalues[3], d_diag[1]),
+            TransformFromCopy(self._formula_eigenvalues[5], d_diag[2]),
+            FadeIn(d_zeros),
+            run_time=1.8,
         )
-        self.wait(wait_time_fast)
+        self.wait(1.6)
 
-        self.play(FadeOut(formula_eigenvalues_result), matrices_display_group.animate.move_to(UP * 1.2), run_time=1.2)
+        self.play(FadeOut(self._formula_eigenvalues), pd_display.animate.move_to(UP * 1.2), run_time=1.2)
 
-        formula_final_diagonalization = MathTex(r"A = P D P^{-1}", color=YELLOW, font_size=48).next_to(matrices_display_group, DOWN, buff=0.5)
-        self.play(Write(formula_final_diagonalization), run_time=1.2)
+        formula_diag = MathTex(r"A = P D P^{-1}", color=YELLOW, font_size=48)
+        formula_diag.next_to(pd_display, DOWN, buff=0.5)
+        self.play(Write(formula_diag), run_time=1.2)
         self.wait(1.0)
 
-        bridge_explanation_title = Text("Cầu nối học thuật: Q và P đều là đổi cơ sở", font=CONFIG["DEFAULT_FONT"], font_size=24)
-        bridge_explanation_title.next_to(chapter_title, DOWN, buff=0.9)
-        bridge_explanation_q = Text("Q: đổi sang cơ sở trực chuẩn (đẹp về hình học)", font=CONFIG["DEFAULT_FONT"], font_size=22, color=CONFIG["color_matrix_Q"])
-        bridge_explanation_p = Text("P: đổi sang cơ sở vector riêng (đẹp về đại số)", font=CONFIG["DEFAULT_FONT"], font_size=22, color=CONFIG["color_highlight"])
-        bridge_display_group = VGroup(bridge_explanation_title, bridge_explanation_q, bridge_explanation_p).arrange(DOWN, aligned_edge=LEFT, buff=0.2)
-        bridge_display_group.move_to(DOWN * 0.2 + LEFT * 1.9)
-        self.add_fixed_in_frame_mobjects(bridge_display_group)
-        self.play(FadeIn(bridge_display_group, shift=RIGHT * 0.2), run_time=1.4)
-        self.wait(CONFIG["pause_formula_long"])
+        self._pd_display = pd_display
+        self._formula_diag = formula_diag
+        self._matrix_p_mobject = matrix_p_mobject
+        self._matrix_d_mobject = matrix_d_mobject
 
-        matrix_p_copy = matrix_mobject_p.copy().scale(0.6)
-        matrix_d_copy = matrix_mobject_d.copy().scale(0.6)
-        matrix_p_inv_copy = matrix_mobject_p.copy().scale(0.6)
-        label_a_equals = MathTex("A = ", font_size=40)
-        expanded_diagonalization_group = VGroup(label_a_equals, matrix_p_copy, matrix_d_copy, matrix_p_inv_copy).arrange(RIGHT, buff=0.1)
-        expanded_diagonalization_group.next_to(formula_final_diagonalization, DOWN, buff=0.4)
-        label_inverse_exponent = MathTex("^{-1}", font_size=36)
-        label_inverse_exponent.next_to(matrix_p_inv_copy.get_brackets()[1], UR, buff=0.05).shift(DOWN * 0.3 + LEFT * 0.1)
-        self.play(FadeIn(expanded_diagonalization_group, shift=UP), FadeIn(label_inverse_exponent), run_time=1.4)
-        self.wait(wait_time_fast)
-
-        formula_chain_expr = MathTex(
-            r"P^{-1}\mathbf{v}\;\xrightarrow{\;D\;}\;D(P^{-1}\mathbf{v)}\;\xrightarrow{\;P\;}\;PDP^{-1}\mathbf{v}",
-            font_size=34,
-            color=CONFIG["color_matrix_D"],
-        ).next_to(expanded_diagonalization_group, DOWN, buff=0.3)
-        formula_confirmation_result = MathTex(r"PDP^{-1}=A", font_size=44, color=GREEN).move_to(formula_chain_expr)
-        self.play(Write(formula_chain_expr), run_time=1.6)
-        self.wait(CONFIG["pause_formula_short"])
-        self.play(TransformMatchingTex(formula_chain_expr, formula_confirmation_result), run_time=1.6)
-        self.wait(CONFIG["pause_formula_short"])
-
-        self.play(
-            AnimationGroup(
-                FadeOut(chapter_title), FadeOut(matrices_display_group),
-                FadeOut(formula_final_diagonalization), FadeOut(expanded_diagonalization_group), FadeOut(label_inverse_exponent),
-                FadeOut(formula_confirmation_result), FadeOut(bridge_display_group),
-                lag_ratio=0.03
-            ),
-            run_time=1.8
+    def _play_scene11_pipeline_visualization(self) -> None:
+        """Scene 11: Đường ống P⁻¹ → D → P — cầu nối QR vs PDP⁻¹."""
+        self.subtitle_manager.update_subtitle_text(
+            "P⁻¹ đổi sang cơ sở riêng → D co giãn → P đưa về ban đầu.",
+            math_substrings=["P", "D", "⁻¹"]
         )
 
-    def render_verification_chapter(self) -> None:
-        """
-        Chương 4: Kiểm chứng số học.
-        Kiểm tra cuối cùng để đảm bảo kết quả phân rã là chính xác.
-        """
-        chapter_title = Text("Kiểm chứng kết quả", font_size=CONFIG["title_font_size"], font=CONFIG["DEFAULT_FONT"])
-        chapter_title.move_to(self.layout_zones["title"])
-        self.play_with_consistent_timing(Write(chapter_title))
-        
-        self.subtitle_manager.update_subtitle_text("Rút gọn kiểm chứng: trước hết tính PD.")
-        formula_verification_pd = MathTex(
-            r"PD = \begin{pmatrix} 4 & -1 & -1 \\ 4 & 1 & 0 \\ 4 & 0 & 1 \end{pmatrix}",
-            font_size=34
-        ).move_to(UP * 0.8)
-        self.play(Write(formula_verification_pd), run_time=1.3)
-        self.wait(1.3)
+        # Sơ đồ chuỗi
+        formula_chain = MathTex(
+            r"P^{-1}\mathbf{v}\;\xrightarrow{\;D\;}\;D(P^{-1}\mathbf{v)}\;\xrightarrow{\;P\;}\;PDP^{-1}\mathbf{v}",
+            font_size=34, color=CONFIG["color_matrix_D"],
+        ).next_to(self._pd_display, DOWN, buff=0.8)
+        formula_confirm = MathTex(r"PDP^{-1}=A", font_size=44, color=GREEN).move_to(formula_chain)
 
-        self.subtitle_manager.update_subtitle_text("Tiếp theo nhân với P^{-1} để quay lại ma trận gốc.")
-        formula_verification_pdp_inv = MathTex(
-            r"(PD)P^{-1} = \begin{pmatrix} 2 & 1 & 1 \\ 1 & 2 & 1 \\ 1 & 1 & 2 \end{pmatrix}",
-            font_size=34,
-            color=GREEN
-        ).move_to(ORIGIN)
-        self.play(ReplacementTransform(formula_verification_pd.copy(), formula_verification_pdp_inv), run_time=1.4)
-        self.wait(1.2)
+        self.play(FadeOut(self._formula_diag), run_time=0.6)
+        self.play(Write(formula_chain), run_time=1.6)
+        self.wait(CONFIG["pause_formula_short"])
+        self.play(TransformMatchingTex(formula_chain, formula_confirm), run_time=1.6)
+        self.wait(CONFIG["pause_formula_short"])
 
-        self.subtitle_manager.update_subtitle_text("So sánh với A ban đầu: kết quả trùng khớp hoàn toàn.")
-        formula_original_a_check = MathTex(
-            r"A = \begin{pmatrix} 2 & 1 & 1 \\ 1 & 2 & 1 \\ 1 & 1 & 2 \end{pmatrix}",
-            font_size=34,
-            color=YELLOW
-        ).move_to(DOWN * 0.9)
-        self.play(Write(formula_original_a_check), run_time=1.3)
+        # Loại bỏ thông báo kiểm chứng cũ để tránh đè chữ lên khối nội dung mới
+        self.play(FadeOut(formula_confirm), run_time=0.8)
+
+        # Cầu nối: Q vs P
+        bridge_title = Text("Q và P đều là đổi cơ sở", font=CONFIG["DEFAULT_FONT"], font_size=24)
+        bridge_q = Text("Q: cơ sở trực chuẩn (đẹp hình học)", font=CONFIG["DEFAULT_FONT"], font_size=22, color=CONFIG["color_matrix_Q"])
+        bridge_p = Text("P: cơ sở vector riêng (đẹp đại số)", font=CONFIG["DEFAULT_FONT"], font_size=22, color=CONFIG["color_highlight"])
+        bridge_group = VGroup(bridge_title, bridge_q, bridge_p).arrange(DOWN, aligned_edge=LEFT, buff=0.2)
+        bridge_group.move_to(DOWN * 1.5)
+        # Sử dụng thuộc tính opacity để kiểm soát hiển thị trong ThreeDScene
+        self.add_fixed_in_frame_mobjects(bridge_group)
+        bridge_group.set_opacity(0)
+        self.play(
+            bridge_group.animate.set_opacity(1).shift(RIGHT * 0.2), 
+            run_time=1.4
+        )
+        self.wait(CONFIG["pause_formula_long"])
+
+        # Kiểm chứng nhanh
+        self.subtitle_manager.update_subtitle_text(
+            "Kiểm chứng: PDP⁻¹ phải ra đúng A ban đầu.",
+            math_substrings=["PDP⁻¹", "A"]
+        )
+        formula_verify = MathTex(
+            r"PDP^{-1} = \begin{pmatrix} 2 & 1 & 1 \\ 1 & 2 & 1 \\ 1 & 1 & 2 \end{pmatrix} = A \;\checkmark",
+            font_size=34, color=GREEN,
+        ).move_to(DOWN * 0.3)
+        # formula_confirm đã được FadeOut ở trên, chỉ cần xóa bridge_group.
+        self.play(FadeOut(bridge_group), Write(formula_verify), run_time=1.4)
         self.wait(CONFIG["pause_key"])
 
-        self.play(FadeOut(chapter_title, formula_verification_pd, formula_verification_pdp_inv, formula_original_a_check), run_time=1.2)
+        # Dọn dẹp
+        self.play(
+            AnimationGroup(
+                FadeOut(self._chapter_title_eigen), FadeOut(self._pd_display),
+                FadeOut(formula_verify),
+                lag_ratio=0.03,
+            ),
+            run_time=1.8,
+        )
 
-    def render_closing_scene(self) -> None:
-        """Thông điệp kết thúc."""
-        self.subtitle_manager.update_subtitle_text("Cảm ơn các bạn đã theo dõi bài học!")
-        thanks_mobject = Text("Cảm ơn các bạn đã theo dõi!", font="Arial", font_size=40)
-        thanks_mobject.move_to(self.layout_zones["visual"])
-        self.play_with_consistent_timing(Write(thanks_mobject))
+    # ==================================================================
+    # PHẦN 4: Kết luận (Scene 12–13)
+    # ==================================================================
+
+    def render_part4_conclusion(self) -> None:
+        """Phần 4: So sánh QR vs PDP⁻¹, công thức Aⁿ, kết thúc."""
+        self._play_scene12_split_comparison()
+        self._play_scene13_power_formula()
+
+    def _play_scene12_split_comparison(self) -> None:
+        """Scene 12: Split screen — trái: QR (hình học), phải: PDP⁻¹ (đại số)."""
+        self.set_camera_orientation(phi=0, theta=-90 * DEGREES)
+
+        chapter_title_conclusion = Text(
+            "Tổng kết: Hai góc nhìn Giải phẫu Ma trận",
+            font_size=CONFIG["title_font_size"],
+            font=CONFIG["DEFAULT_FONT"],
+        )
+        chapter_title_conclusion.to_edge(UP, buff=0.2)
+        self.add_fixed_in_frame_mobjects(chapter_title_conclusion)
+        self.play(Write(chapter_title_conclusion), run_time=CONFIG["TRANSITION_TIME"])
+
+        self.subtitle_manager.update_subtitle_text(
+            "QR: ép A vào quy chuẩn trực giao, tối ưu giải hệ. PDP⁻¹: tìm bản chất đại số tự nhiên.",
+            math_substrings=["QR", "A", "PDP⁻¹"]
+        )
+
+        # Bên trái: QR
+        qr_title = Text("A = QR", font=CONFIG["DEFAULT_FONT"], font_size=32, color=CONFIG["color_matrix_Q"])
+        qr_desc1 = Text("Gram-Schmidt → hệ trực chuẩn", font=CONFIG["DEFAULT_FONT"], font_size=20)
+        qr_desc2 = Text("R: tam giác trên (hệ số tổ hợp)", font=CONFIG["DEFAULT_FONT"], font_size=20, color=CONFIG["color_matrix_R"])
+        qr_desc3 = Text("Ứng dụng: giải hệ PT, least squares", font=CONFIG["DEFAULT_FONT"], font_size=20, color=GRAY_B)
+        qr_block = VGroup(qr_title, qr_desc1, qr_desc2, qr_desc3).arrange(DOWN, aligned_edge=LEFT, buff=0.25)
+        qr_block.move_to(LEFT * 3.2 + UP * 0.2)
+
+        # Bên phải: PDP⁻¹
+        # Sử dụng MathTex để đảm bảo các ký tự đặc biệt được render chính xác bằng LaTeX
+        pdp_title = MathTex(r"A = PDP^{-1}", font_size=42, color=CONFIG["color_matrix_D"])
+        pdp_desc1 = Text("Vector riêng → trục co giãn gốc", font=CONFIG["DEFAULT_FONT"], font_size=20)
+        pdp_desc2 = Text("D: đường chéo (trị riêng λ)", font=CONFIG["DEFAULT_FONT"], font_size=20, color=CONFIG["color_eigenvalue_1"])
+        pdp_desc3 = Text("Ứng dụng: lũy thừa Aⁿ, ổn định", font=CONFIG["DEFAULT_FONT"], font_size=20, color=GRAY_B)
+        pdp_block = VGroup(pdp_title, pdp_desc1, pdp_desc2, pdp_desc3).arrange(DOWN, aligned_edge=LEFT, buff=0.25)
+        pdp_block.move_to(RIGHT * 3.2 + UP * 0.2)
+
+        # Đường chia
+        divider_line = DashedLine(UP * 2, DOWN * 2, color=GRAY, stroke_width=1.5)
+
+        self.add_fixed_in_frame_mobjects(qr_block, pdp_block, divider_line)
+        self.play(
+            FadeIn(qr_block, shift=RIGHT * 0.3),
+            FadeIn(pdp_block, shift=LEFT * 0.3),
+            Create(divider_line),
+            run_time=2.0,
+        )
+        self.wait(CONFIG["pause_formula_long"])
+
+        self._conclusion_mobjects = VGroup(chapter_title_conclusion, qr_block, pdp_block, divider_line)
+
+    def _play_scene13_power_formula(self) -> None:
+        """Scene 13: Công thức Aⁿ = PDⁿP⁻¹ nhấp nháy + thông điệp kết."""
+        self.subtitle_manager.update_subtitle_text(
+            "Chéo hóa biến lũy thừa ma trận phức tạp thành phép nhân vô hướng đơn giản."
+        )
+
+        formula_power = MathTex(
+            r"A^n = P D^n P^{-1}",
+            font_size=52,
+            color=CONFIG["color_pipeline_arrow"],
+        ).move_to(DOWN * 1.5)
+        self.add_fixed_in_frame_mobjects(formula_power)
+        self.play(Write(formula_power), run_time=1.4)
+
+        # Nhấp nháy
+        self.play(
+            formula_power.animate.set_color(YELLOW).scale(1.05),
+            run_time=0.8, rate_func=there_and_back,
+        )
         self.wait(CONFIG["pause_key"])
-        self.play(FadeOut(thanks_mobject))
+
+        # Thông điệp kết
+        self.play(FadeOut(self._conclusion_mobjects), run_time=1.0)
+        closing_text = Text(
+            "The Nature of Linear Algebra",
+            font=CONFIG["DEFAULT_FONT"],
+            font_size=44,
+            color=WHITE,
+        ).move_to(UP * 0.5)
+        thanks_text = Text(
+            "Cảm ơn các bạn đã theo dõi!",
+            font=CONFIG["DEFAULT_FONT"],
+            font_size=36,
+        ).move_to(DOWN * 0.8)
+
+        self.add_fixed_in_frame_mobjects(closing_text, thanks_text)
+        self.play(
+            FadeIn(closing_text, shift=DOWN * 0.3),
+            formula_power.animate.move_to(ORIGIN),
+            run_time=1.6,
+        )
+        self.play(FadeIn(thanks_text, shift=UP * 0.2), run_time=1.2)
+        self.wait(CONFIG["pause_key"])
+
+        self.play(
+            FadeOut(closing_text), FadeOut(thanks_text), FadeOut(formula_power),
+            run_time=1.5,
+        )
         self.subtitle_manager.remove_subtitle_display()
+
