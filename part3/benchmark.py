@@ -2,7 +2,6 @@ import os
 import sys
 import time
 import random
-import math
 import matplotlib.pyplot as plt
 from typing import List, Dict, Tuple
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
