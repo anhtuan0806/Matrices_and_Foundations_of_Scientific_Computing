@@ -18,27 +18,11 @@
 \renewcommand{\listfigurename}{}      
 
 \chapter*{\centering{MỤC LỤC}}
-% \addcontentsline{toc}{chapter}{\textcolor{fitblue}{MỤC LỤC}}
+\phantomsection
+\addcontentsline{toc}{chapter}{\textcolor{fitblue}{MỤC LỤC}}
 {\setstretch{1.2}
 \tableofcontents
 \newpage
-% Đổi tên tiếng Việt
-\renewcommand{\listfigurename}{\Large Danh mục hình ảnh}
-\renewcommand{\listtablename}{\Large Danh mục bảng biểu}
-\renewcommand{\listalgorithmname}{\Large Danh mục mã giả}
-
-% Chèn danh mục và đưa vào Mục lục (cấp độ section để có màu đỏ)
-\phantomsection
-\addcontentsline{toc}{section}{Danh mục hình ảnh}
-\listoffigures
-
-\phantomsection
-\addcontentsline{toc}{section}{Danh mục bảng biểu}
-\listoftables
-
-\phantomsection
-\addcontentsline{toc}{section}{Danh mục mã giả}
-\listofalgorithms
 \newpage
 }
 
