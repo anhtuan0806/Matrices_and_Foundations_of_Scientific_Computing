@@ -53,4 +53,4 @@ def inverse(A: List[List[float]]) -> List[List[float]]:
                     
     # Trích xuất phần bên phải của ma trận tăng cường chính là A^-1
     inverse_matrix = [row[number_of_rows:] for row in augmented_matrix]
-    return inverse_matrix
+    return inverse_matrix

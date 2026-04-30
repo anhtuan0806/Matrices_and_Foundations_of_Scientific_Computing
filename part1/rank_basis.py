@@ -54,4 +54,4 @@ def rank_and_basis(A: List[List[float]]) -> Tuple[int, List[List[float]], List[L
             
         null_space_basis.append(solution_vector)
         
-    return rank_value, column_space_basis, row_space_basis, null_space_basis
+    return rank_value, column_space_basis, row_space_basis, null_space_basis

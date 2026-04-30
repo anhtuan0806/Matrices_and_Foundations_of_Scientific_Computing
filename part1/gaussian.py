@@ -176,4 +176,4 @@ def gaussian_eliminate(A: List[List[float]], b: List[float], verbose: bool = Tru
     if verbose and isinstance(solution_x, tuple):
         display_general_solution(solution_x[0], solution_x[1])
         
-    return augmented_matrix, solution_x, swap_count
+    return augmented_matrix, solution_x, swap_count
