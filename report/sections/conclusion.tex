@@ -1,0 +1,35 @@
+\newpage
+\chapter*{\centering{\MakeUppercase{Kết luận}}}
+\phantomsection
+\addcontentsline{toc}{chapter}{\textcolor{fitblue}{\MakeUppercase{Kết luận}}}
+
+\section*{1. Các kết quả đạt được}
+\phantomsection
+\addcontentsline{toc}{section}{1. Các kết quả đạt được}
+Sau quá trình nghiên cứu, thiết kế thuật toán và lập trình thực nghiệm, nhóm đã hoàn thành các mục tiêu đề ra của Đồ án môn Toán Ứng dụng và Thống kê. Cụ thể:
+\begin{itemize}
+    \item \textbf{Về mặt Lập trình \& Thuật toán:} Cài đặt thành công các hàm từ đầu bằng Python thuần. Cài đặt thuật toán Khử Gauss có chọn phần tử chốt (Partial Pivoting) giúp đảm bảo độ chính xác cao khi giải hệ phương trình và tìm nghịch đảo. Tại phần phân rã, nhóm đã triển khai thành công thuật toán trực giao hóa Gram-Schmidt cổ điển và thuật toán Lặp QR (QR Iteration) để tìm giá trị riêng, vector riêng và chéo hóa ma trận.
+    \item \textbf{Về mặt Đánh giá \& Kiểm thử:} Xây dựng được hệ thống testcase bao phủ các trường hợp từ ma trận lý tưởng, ma trận suy biến, đến các ma trận số học như ma trận Hilbert hay ma trận chênh lệch tỷ lệ cực đoan (Extreme Scale).
+    \item \textbf{Về mặt Trực quan hóa:} Render thành công video 3D bằng Manim mô phỏng trực quan từng bước chiếu vector của thuật toán Gram-Schmidt và hiệu ứng tạo lập không gian tọa độ mới trong phép biến đổi $A = PDP^{-1}$.
+\end{itemize}
+
+\section*{2. Khó khăn gặp phải}
+\phantomsection
+\addcontentsline{toc}{section}{2. Khó khăn gặp phải}
+Trong quá trình thực hiện đồ án, nhóm đã đối mặt và giải quyết nhiều thách thức khó khăn, đặc biệt là ở mảng Tính toán số (Numerical Computing):
+\begin{itemize}
+    \item \textbf{Sai số làm tròn (Round-off Errors) trong Gram-Schmidt:} Thuật toán Gram-Schmidt cổ điển thể hiện sự bất ổn định số học nghiêm trọng khi gặp các vector gần phụ thuộc tuyến tính (Numerically Dependent). Hiện tượng triệt tiêu sai số (Catastrophic Cancellation) khiến ma trận $Q$ nhanh chóng mất đi tính trực giao hoàn hảo.
+    \item \textbf{Tốc độ hội tụ của thuật toán Lặp QR:} Do giới hạn yêu cầu tự cài đặt, thuật toán Lặp QR thuần túy (không có cơ chế dịch chuyển Shifts) mất rất nhiều thời gian (hàng trăm vòng lặp) mới có thể hội tụ khi gặp các trị riêng nằm quá sát nhau. 
+    \item \textbf{Trực quan hóa không gian 3D:} Thư viện Manim có learning-curve (đường cong học tập) khá dốc. Việc đồng bộ hóa các phép chiếu toán học với hoạt ảnh (animations) của camera 3D tốn rất nhiều thời gian canh chỉnh tọa độ.
+    \item \textbf{Kiến thức khó:} Đồ án có nhiều phần kiến thức khó, đòi hỏi phải nghiên cứu nhiều tài liệu tham khảo và tham khảo nhiều nguồn trên Internet, khó khăn nhất là cài các thuật toán mà không sử dụng thư viện Numpy.
+\end{itemize}
+
+\section*{3. Bài học rút ra}
+\phantomsection
+\addcontentsline{toc}{section}{3. Bài học rút ra}
+Sau quá trình cùng nhau hoàn thành đồ án thì nhóm có rút ra được một số bài học cho mình:
+\begin{enumerate}
+    \item \textbf{Khoảng cách giữa lý thuyết và thực hành:} Một công thức toán học đúng hoàn toàn trên giấy (như Gram-Schmidt) chưa chắc đã là một thuật toán tốt khi đưa vào bộ nhớ dấu phẩy động (Float 64-bit) của máy tính. Việc hiểu rõ giới hạn phần cứng giúp nhóm có tư duy lập trình phòng thủ tốt hơn.
+    \item \textbf{Hiểu sâu hơn về các thư viện công nghiệp:} Qua việc tự cài đặt và liên tục nhận kết quả thua kém so với NumPy ở các test cases khó, nhóm đã hiểu được tại sao các thư viện hiện đại phải sử dụng những thuật toán phức tạp hơn rất nhiều như Householder Reflections (để phân rã) và Wilkinson Shifts (để chéo hóa).
+    \item \textbf{Kỹ năng:} Qua quá trình cùng nhau làm và nghiên cứu các tài liệu, từng thành viên trong nhóm đồng thời phát triển nhiều kĩ năng mềm như: research, làm việc nhóm, giao tiếp. Các kĩ năng trên đều là kỹ năng nền tảng quan trọng cho tương lai sau này.
+\end{enumerate}

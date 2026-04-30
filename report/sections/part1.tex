@@ -1,0 +1,651 @@
+% \newpage
+% \chapter*{\centering{\MakeUppercase{CHƯƠNG 1. TỔNG QUAN CHƯƠNG TRÌNH}}}
+% \addcontentsline{toc}{chapter}{\textcolor{fitblue}{\MakeUppercase{CHƯƠNG 1. TỔNG QUAN CHƯƠNG TRÌNH}}}
+
+% Nội dung chương 1 viết tại đây...\cite{cppreference}
+
+
+\newpage
+\chapter*{\centering{\MakeUppercase{PHẦN 1: PHÉP KHỬ GAUSS VÀ CÁC ỨNG Dụng}}}
+\phantomsection
+\addcontentsline{toc}{chapter}{\textcolor{fitblue}{\MakeUppercase{PHẦN 1: PHÉP KHỬ GAUSS VÀ CÁC ỨNG DỤNG}}}
+
+Nội dung phần này tập trung vào việc tự xây dựng (from scratch) phép khử Gauss có áp dụng kỹ thuật chọn phần tử chốt (Partial Pivoting) và các ứng dụng của nó trong giải tích ma trận.
+
+\section*{1.1. Cơ sở lý thuyết}
+\phantomsection
+\addcontentsline{toc}{section}{1.1. Cơ sở lý thuyết}
+
+\subsection*{1.1.1. Phương pháp khử Gauss và Gauss-Jordan}
+\phantomsection
+\addcontentsline{toc}{subsection}{1.1.1. Phương pháp khử Gauss và Gauss-Jordan}
+
+
+% Viết lý thuyết về ma trận tăng cường, phép biến đổi dòng sơ cấp, và dạng bậc thang (REF, RREF) vào đây.
+Quá trình khử Gauss sử dụng ba phép biến đổi dòng sơ cấp:
+\begin{enumerate}
+    \item $R_{i} \leftrightarrow R_{j}$: Hoán đổi vị trí hai dòng $i$ và $j$.
+    \item $R_{i} \leftarrow c \cdot R_{i}$ ($c \neq 0$): Nhân một dòng với một hằng số khác không.
+    \item $R_{i} \leftarrow R_{i} + c \cdot R_{j}$: Cộng một bội số của dòng này vào dòng khác.
+\end{enumerate}
+
+Mục tiêu của phép khử Gauss là đưa ma trận về Dạng bậc thang dòng (Row Echelon Form - REF), trong đó các dòng toàn số 0 nằm dưới cùng và phần tử chỉ huy (pivot) của dòng dưới luôn nằm bên phải pivot của dòng trên. Phương pháp Gauss-Jordan tiến xa hơn bằng cách đưa ma trận về Dạng bậc thang dòng rút gọn (Reduced REF - RREF), yêu cầu thêm điều kiện mọi pivot phải bằng 1 và các phần tử khác trong cùng cột với pivot phải bằng 0.
+
+\subsection*{1.1.2. Khử Gauss có chọn phần tử chốt (Partial Pivoting)}
+\phantomsection
+\addcontentsline{toc}{subsection}{1.1.2. Khử Gauss có chọn phần tử chốt (Partial Pivoting)}
+
+% Giải thích vì sao cần Partial Pivoting để giảm sai số làm tròn.
+Khi lập trình tính toán trên máy tính, thuật toán Gauss cơ bản dễ gặp lỗi chia cho 0 hoặc sai số làm tròn (round-off error) cực lớn nếu phần tử pivot quá nhỏ. 
+
+Để khắc phục, ta áp dụng kỹ thuật Partial Pivoting: Tại bước khử thứ $k$, thay vì lấy luôn $a_{kk}$ làm pivot, ta tìm phần tử có giá trị tuyệt đối lớn nhất trong cột $k$ từ dòng $k$ đến dòng $n$:
+$$|a_{pk}^{(k)}| = \max_{k \le i \le n} |a_{ik}^{(k)}|$$
+Sau đó, hoán đổi dòng $k$ và dòng $p$ trước khi thực hiện phép khử. Điều này đảm bảo các nhân tử luôn có trị tuyệt đối $\le 1$, giúp duy trì tính ổn định số học.
+\subsection*{1.1.3. Tính định thức, ma trận nghịch đảo và hạng ma trận}
+\phantomsection
+\addcontentsline{toc}{subsection}{1.1.3. Tính định thức, ma trận nghịch đảo và hạng ma trận}
+
+% Trình bày công thức tính Det qua ma trận tam giác trên, cách tìm A^-1 bằng [A|I], và cách xác định Rank.
+\textbf{Tính định thức:} Khi đưa ma trận vuông $A$ về ma trận tam giác trên $U$ bằng phép khử Gauss, định thức của $A$ bằng tích các phần tử trên đường chéo chính của $U$, nhân với $(-1)^s$, trong đó $s$ là số lần hoán đổi dòng đã thực hiện:
+$$det(A) = (-1)^{s} \cdot \prod_{i=1}^{n} u_{ii}$$
+
+\textbf{Tìm ma trận nghịch đảo:} Một ma trận vuông $A$ khả nghịch khi $det(A) \neq 0$. Bằng phương pháp Gauss-Jordan, ta lập ma trận tăng cường ghép với ma trận đơn vị $[A|I_n]$. Khi thực hiện biến đổi sơ cấp đưa vế trái về dạng RREF, vế phải sẽ trở thành ma trận nghịch đảo $A^{-1}$: $[A|I_n] \xrightarrow{\text{Gauss-Jordan}} [I_n|A^{-1}]$.
+
+\textbf{Hạng và Cơ sở không gian:}
+Hạng (rank) của ma trận $A$ chính là số dòng khác $0$ trong dạng REF của nó (hoặc số pivot). 
+\begin{itemize}
+    \item \textbf{Cơ sở không gian cột ($\mathcal{C}(A)$):} Tập hợp các cột của ma trận $A$ ban đầu tương ứng với các cột chứa pivot.
+    \item \textbf{Cơ sở không gian dòng ($\mathcal{R}(A)$):} Tập hợp các dòng khác $0$ trong ma trận REF.
+    \item \textbf{Cơ sở không gian nghiệm ($\mathcal{N}(A)$):} Tập nghiệm cơ bản của hệ phương trình thuần nhất $Ax = 0$.
+\end{itemize}
+
+\section*{1.2. Phân tích thuật toán}
+\phantomsection
+\addcontentsline{toc}{section}{1.2. Phân tích thuật toán}
+% Viết mã giả (Pseudocode) hoặc lưu đồ thuật toán tại đây.
+Dưới đây là mô tả chi tiết các bước thực thi của Thuật toán khử Gauss có Partial Pivoting để giải hệ $Ax = b$:
+\\
+\textbf{Đầu vào:} Ma trận $A \in \mathbb{R}^{n \times m}$, vector $b \in \mathbb{R}^{n}$.\\
+\textbf{Đầu ra:} Nghiệm $x$, số lần hoán đổi dòng $s$.
+
+\textbf{Bước 1: Khởi tạo}\\
+Tạo ma trận tăng cường $M = [A|b]$ và đặt biến đếm số lần hoán đổi $s = 0$.
+
+\textbf{Bước 2: Quá trình khử tiến (Forward Elimination)}\\
+Lặp $k$ từ $1$ đến $n$:
+\begin{itemize}
+    \item \textit{Tìm Pivot:} Tìm chỉ số dòng $p$ ($p \ge k$) sao cho $|M_{pk}|$ đạt giá trị lớn nhất. Nếu $|M_{pk}| < \epsilon$ (với $\epsilon$ rất nhỏ), cảnh báo ma trận suy biến.
+    \item \textit{Hoán đổi dòng:} Nếu $p \neq k$, thực hiện hoán đổi dòng $k \leftrightarrow p$ và tăng $s = s + 1$.
+    \item \textit{Khử các dòng dưới:} Lặp $i$ từ $k+1$ đến $n$. Tính nhân tử $l_{ik} = \frac{M_{ik}}{M_{kk}}$. Cập nhật dòng $i$: $M_{i} \leftarrow M_{i} - l_{ik} \cdot M_{k}$.
+\end{itemize}
+
+\textbf{Bước 3: Quá trình thế ngược (Back Substitution)}\\
+Giải hệ tam giác trên từ dưới lên trên. Lặp $i$ từ $n$ lùi về $1$:
+$$x_{i} = \frac{1}{M_{ii}} \left( M_{i, m+1} - \sum_{j=i+1}^{n} M_{ij}x_{j} \right)$$
+\section*{1.3. Cài đặt Python và Kiểm chứng}
+\phantomsection
+\addcontentsline{toc}{section}{1.3. Cài đặt Python và Kiểm chứng}
+
+Trong phần này, nhóm sẽ trình bày mã nguồn cài đặt và các test case để chứng minh tính đúng đắn của thuật toán, có đối chiếu với thư viện NumPy.
+
+\subsection*{1.3.1. Cài đặt phép khử Gauss và Partial Pivoting}
+\phantomsection
+\addcontentsline{toc}{subsection}{1.3.1. Cài đặt phép khử Gauss và Partial Pivoting}
+Đoạn code sau cài đặt hàm \texttt{gaussian\_eliminate(A, b)} - Trả về ma trận sau khi khử, nghiệm x, số lần hoán đổi:
+
+\begin{algorithm}[H]
+\caption{Khử Gauss với Partial Pivoting (Chọn phần tử chốt một phần)}
+\label{alg:gaussian_elimination}
+\begin{algorithmic}[1]
+\Procedure{GAUSSIAN\_ELIMINATE}{$A, b, verbose$}
+    \State $m \gets$ Số hàng của $A$
+    \State $n \gets$ Số cột của $A$
+    \State Khởi tạo số lần hoán đổi $s \gets 0$, dung sai $\epsilon \gets 10^{-12}$
+    
+    \State Tạo ma trận tăng cường $M \gets [A | b]$ \Comment{Kích thước $m \times (n+1)$}
+    \State $r \gets 0$ \Comment{Chỉ số hàng pivot hiện tại}
+    
+    \For{$j \gets 0$ to $n-1$} \Comment{Duyệt qua từng cột}
+        \If{$r \geq m$} 
+            \State \textbf{break} \Comment{Đã xét hết các hàng}
+        \EndIf
+        
+        \State Tìm $p \in [r, m-1]$ sao cho $|M[p][j]| = \max_{r \leq i < m} |M[i][j]|$
+        \State $max\_val \gets |M[p][j]|$
+        
+        \If{$max\_val < \epsilon$}
+            \State \textbf{continue} \Comment{Không có pivot, chuyển sang cột tiếp theo}
+        \EndIf
+        
+        \If{$p \neq r$}
+            \State Hoán đổi hàng $r$ và hàng $p$ của $M$: $M[r] \leftrightarrow M[p]$
+            \State $s \gets $ $s + 1$
+        \EndIf
+        
+        \For{$i \gets r+1$ to $m-1$} \Comment{Khử các phần tử dưới pivot}
+            \State $factor \gets M[i][j] / M[r][j]$
+            \State $M[i][j] \gets 0$ \Comment{Gán bằng 0 để tránh sai số làm tròn}
+            \For{$k \gets j+1$ to $n$} \Comment{Khử đến cột cuối cùng (gồm cả $b$)}
+                \State $M[i][k] \gets M[i][k] - factor \times M[r][k]$
+            \EndFor
+        \EndFor
+        
+        \State $r \gets r + 1$ \Comment{Chuyển sang hàng pivot tiếp theo}
+    \EndFor
+    
+    \State Tách ma trận tam giác trên $U$ và vector $c$ từ ma trận tăng cường $M$
+    \State $x \gets$ \Call{BACK\_SUBSTITUTION}{$U, c$} \Comment{Gọi hàm thế ngược}
+    
+    \If{$verbose = \text{True}$ \textbf{and} $x$ có vô số nghiệm}
+        \State In công thức tổng quát của hệ phương trình
+    \EndIf
+    
+    \State \Return $(M, x, s)$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+Đoạn code sau cài đặt hàm \texttt{back\_substitution(U, c)} -  Giải hệ tam giác trên:
+
+% ==========================================
+% THUẬT TOÁN THẾ NGƯỢC - PHẦN 1
+% ==========================================
+\begin{algorithm}[H]
+\caption{Quá trình Thế ngược (Back Substitution) - Phần 1: Tiền xử lý}
+\label{alg:back_substitution_1}
+\begin{algorithmic}[1]
+\Procedure{BACK\_SUBSTITUTION}{$U, c$}
+    \State $m, n \gets$ Kích thước của ma trận tam giác trên $U$
+    \State Dung sai $\epsilon \gets 10^{-12}$
+    \State Khởi tạo danh sách hàng chốt $R_{piv} \gets \emptyset$, cột chốt $C_{piv} \gets \emptyset$
+    
+    \State \Comment{\textbf{Bước 1: Xác định vị trí các phần tử chốt}}
+    \State $r \gets 0$
+    \For{$j \gets 0$ to $n-1$}
+        \If{$r < m$ \textbf{and} $|U[r][j]| > \epsilon$}
+            \State Thêm $r$ vào $R_{piv}$, thêm $j$ vào $C_{piv}$
+            \State $r \gets r + 1$
+        \EndIf
+    \EndFor
+    
+    \State \Comment{\textbf{Bước 2: Kiểm tra tính có nghiệm của hệ}}
+    \For{$i \gets r$ to $m-1$} \Comment{Xét các dòng toàn số 0 của $U$}
+        \If{$|c[i]| > \epsilon$}
+            \State \Return "Hệ phương trình vô nghiệm"
+        \EndIf
+    \EndFor
+    
+    \State \Comment{\textbf{Bước 3: Xác định biến tự do và Khởi tạo ma trận nghiệm}}
+    \State Tập các cột tự do $F \gets \{0, 1, \dots, n-1\} \setminus C_{piv}$
+    \State $k_{free} \gets |F|$ \Comment{Số lượng biến tự do}
+    \State Khởi tạo ma trận hệ số $X_{coef}$ kích thước $n \times (1 + k_{free})$ với các phần tử $0$
+    
+    \For{mỗi chỉ số $idx$ và cột $f_j \in F$}
+        \State $X_{coef}[f_j][1 + idx] \gets 1.0$ \Comment{Gán hệ số 1 cho chính biến tự do đó}
+    \EndFor
+    
+    \State \Comment{\textit{-- Thuật toán tiếp tục ở trang sau --}}
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\newpage % <--- Lệnh ép sang trang mới để tránh đè footer
+
+% ==========================================
+% THUẬT TOÁN THẾ NGƯỢC - PHẦN 2
+% ==========================================
+\begin{algorithm}[H]
+\caption{Quá trình Thế ngược (Back Substitution) - Phần 2: Giải nghiệm}
+\label{alg:back_substitution_2}
+\begin{algorithmic}[1]
+\Procedure{BACK\_SUBSTITUTION}{$U, c$} \Comment{\textit{Tiếp tục từ Phần 1}}
+    
+    \State \Comment{\textbf{Bước 4: Thế ngược từ dưới lên trên}}
+    \For{$i \gets |C_{piv}| - 1$ \textbf{downto} $0$}
+        \State $pc \gets C_{piv}[i]$, $pr \gets R_{piv}[i]$
+        \State Khởi tạo mảng $coef$ kích thước $(1 + k_{free})$ với các phần tử $0$
+        \State $coef[0] \gets c[pr]$ \Comment{Gán hằng số ban đầu}
+        
+        \For{$j \gets pc + 1$ to $n-1$}
+            \If{$|U[pr][j]| > \epsilon$}
+                \For{$k \gets 0$ to $k_{free}$}
+                    \State $coef[k] \gets coef[k] - U[pr][j] \times X_{coef}[j][k]$
+                \EndFor
+            \EndIf
+        \EndFor
+        
+        \State $piv \gets U[pr][pc]$
+        \State $X_{coef}[pc] \gets coef / piv$ \Comment{Lưu hệ số tham số của biến chốt}
+    \EndFor
+    
+    \State \Comment{\textbf{Bước 5: Trả về kết quả}}
+    \If{$k_{free} = 0$}
+        \State \Return $X_{coef}[:][0]$ \Comment{Nghiệm duy nhất (chỉ lấy cột hằng số)}
+    \Else
+        \State \Return $(X_{coef}, F)$ \Comment{Vô số nghiệm (trả về ma trận tham số)}
+    \EndIf
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\subsection*{1.3.2. Tính định thức và Ma trận nghịch đảo}
+\phantomsection
+\addcontentsline{toc}{subsection}{1.3.2. Tính định thức và Ma trận nghịch đảo}
+
+Đoạn code sau cài đặt hàm \texttt{determinant(A)} - Tính det(A) qua khử Gauss.
+% \begin{lstlisting}[style=numbered, language=Python]
+% def determinant(A):
+%     """
+%     Tính định thức det(A) qua phép khử Gauss.
+%     Công thức: det(A) = (-1)^s * tích các phần tử đường chéo của U.
+
+%     Parameters:
+%     - A: Ma trận vuông (list of lists), kích thước n x n.
+
+%     Returns:
+%     - float: Giá trị định thức.
+%     """
+%     n = len(A)
+%     if any(len(row) != n for row in A):
+%         raise ValueError("Định thức chỉ xác định cho ma trận vuông.")
+
+%     b_dummy = [0.0] * n
+%     try:
+%         # verbose=False: tránh in nghiệm thừa khi gọi nội bộ
+%         M_aug, _, s = gaussian_eliminate(A, b_dummy, verbose=False)
+
+%         # det = (-1)^s * tích đường chéo chính của U
+%         det = (-1.0) ** s
+%         for i in range(n):
+%             det *= M_aug[i][i]
+
+%         # Làm sạch kết quả gần 0 (tránh -0.0 hoặc 1e-15)
+%         return 0.0 if abs(det) < 1e-12 else det
+%     except:
+%         return 0.0
+% \end{lstlisting}
+
+\begin{algorithm}[H]
+\caption{Tính định thức của ma trận qua phép khử Gauss}
+\label{alg:determinant}
+\begin{algorithmic}[1]
+\Procedure{DETERMINANT}{$A$}
+    \State $n \gets$ Số lượng hàng của ma trận $A$
+    
+    \If{Có bất kỳ hàng nào của $A$ có độ dài khác $n$}
+        \State \textbf{raise} Lỗi "Định thức chỉ xác định cho ma trận vuông."
+    \EndIf
+    
+    \State Khởi tạo mảng $b\_dummy \gets [0.0, 0.0, \dots, 0.0]$ gồm $n$ phần tử
+    
+    \State \textbf{try:}
+        \State $(M_{aug}, \_, s) \gets$ \Call{GAUSSIAN\_ELIMINATE}{$A, b\_dummy, \text{False}$}
+        \State $det \gets (-1)^s$ \Comment{Dấu phụ thuộc vào số lần hoán đổi dòng $s$}
+        
+        \For{$i \gets 0$ to $n-1$}
+            \State $det \gets det \times M_{aug}[i][i]$ \Comment{Tích các phần tử trên đường chéo}
+        \EndFor
+        
+        \If{$|det| < 10^{-12}$}
+            \State \Return $0.0$ \Comment{Tránh sai số cực nhỏ hoặc $-0.0$}
+        \Else
+            \State \Return $det$
+        \EndIf
+        
+    \State \textbf{except:} \Comment{Bắt lỗi nếu ma trận suy biến không thể khử}
+        \State \Return $0.0$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+Đoạn code sau cài đặt hàm \texttt{inverse(A)} - Tính $A^{-1}$ bằng phương pháp Gauss–Jordan.
+% \begin{lstlisting}[style=numbered, language=Python]
+% def inverse(A):
+%     """
+%     Tính ma trận nghịch đảo A^-1 bằng phương pháp Gauss–Jordan.
+%     Biến đổi ma trận ghép [A | I] cho đến khi đạt dạng [I | A^-1].
+
+%     Parameters:
+%     - A: Ma trận vuông (list of lists), kích thước n x n.
+
+%     Returns:
+%     - list of lists: Ma trận nghịch đảo A^-1.
+%     - str          : Thông báo nếu ma trận không khả nghịch.
+%     """
+%     n = len(A)
+%     if any(len(row) != n for row in A):
+%         raise ValueError("Chỉ ma trận vuông mới có khả năng nghịch đảo.")
+
+%     # Bước 1: Tạo ma trận ghép [A | I]
+%     I = [[1.0 if i == j else 0.0 for j in range(n)] for i in range(n)]
+%     M = [A[i][:] + I[i][:] for i in range(n)]
+
+%     # Bước 2: Phép khử Gauss–Jordan
+%     for k in range(n):
+%         # a. Chọn phần tử chốt (Partial Pivoting)
+%         max_idx = k
+%         for i in range(k + 1, n):
+%             if abs(M[i][k]) > abs(M[max_idx][k]):
+%                 max_idx = i
+
+%         # b. Kiểm tra điều kiện tồn tại pivot
+%         if abs(M[max_idx][k]) < 1e-12:
+%             return f"Thông báo: Không có pivot tại cột {k+1}. Ma trận không khả nghịch."
+
+%         # Hoán đổi dòng
+%         M[k], M[max_idx] = M[max_idx], M[k]
+
+%         # c. Chuẩn hóa dòng k: đưa pivot về 1
+%         pivot = M[k][k]
+%         M[k]  = [x / pivot for x in M[k]]
+
+%         # d. Khử tất cả phần tử khác trên cột k về 0 (cả trên và dưới)
+%         for i in range(n):
+%             if i != k:
+%                 factor  = M[i][k]
+%                 M[i][k] = 0.0  # tránh sai số làm tròn nhỏ
+%                 for j in range(k + 1, 2 * n):
+%                     M[i][j] -= factor * M[k][j]
+
+%     # Bước 3: Tách ma trận nghịch đảo từ nửa phải
+%     return [row[n:] for row in M]
+% \end{lstlisting}
+% --- Vẽ tiêu đề và đường kẻ trên cùng thủ công ---
+
+
+\begin{algorithm}[H]
+\caption{Tính ma trận nghịch đảo bằng phương pháp Gauss-Jordan}
+\label{alg:inverse}
+\begin{algorithmic}[1]
+\Procedure{INVERSE}{$A$}
+    \State $n \gets$ Số lượng hàng của ma trận $A$
+    
+    \If{Có bất kỳ hàng nào của $A$ có độ dài khác $n$}
+        \State \textbf{raise} Lỗi "Chỉ ma trận vuông mới có khả năng nghịch đảo."
+    \EndIf
+    
+    \State \Comment{\textbf{Bước 1: Tạo ma trận ghép $[A | I]$}}
+    \State Khởi tạo ma trận đơn vị $I$ kích thước $n \times n$
+    \State Tạo ma trận tăng cường $M \gets [A | I]$ \Comment{Kích thước $n \times 2n$}
+    
+    \State \Comment{\textbf{Bước 2: Phép khử Gauss-Jordan}}
+    \For{$k \gets 0$ to $n-1$}
+        
+        \State \Comment{a. Chọn phần tử chốt (Partial Pivoting)}
+        \State $max\_idx \gets k$
+        \For{$i \gets k+1$ to $n-1$}
+            \If{$|M[i][k]| > |M[max\_idx][k]|$}
+                \State $max\_idx \gets i$
+            \EndIf
+        \EndFor
+        
+        \State \Comment{b. Kiểm tra điều kiện tồn tại pivot}
+        \If{$|M[max\_idx][k]| < 10^{-12}$}
+            \State \Return "Thông báo: Không có pivot tại cột $k+1$. Ma trận không khả nghịch."
+        \EndIf
+        
+        \State Hoán đổi hàng $k$ và hàng $max\_idx$ của $M$: $M[k] \leftrightarrow M[max\_idx]$
+        
+        \State \Comment{c. Chuẩn hóa dòng $k$: đưa phần tử chốt về 1}
+        \State $piv \gets M[k][k]$
+        \For{$j \gets k$ to $2n-1$}
+            \State $M[k][j] \gets M[k][j] / piv$
+        \EndFor
+        
+        \State \Comment{d. Khử tất cả phần tử khác trên cột $k$ về 0 (cả trên và dưới)}
+        \For{$i \gets 0$ to $n-1$}
+            \If{$i \neq k$}
+                \State $factor \gets M[i][k]$
+                \State $M[i][k] \gets 0$ \Comment{Tránh sai số làm tròn nhỏ}
+                \For{$j \gets k+1$ to $2n-1$}
+                    \State $M[i][j] \gets M[i][j] - factor \times M[k][j]$
+                \EndFor
+            \EndIf
+        \EndFor
+    \EndFor
+    
+    \State \Comment{\textbf{Bước 3: Tách ma trận nghịch đảo từ nửa phải}}
+    \State Trích xuất các cột từ $n$ đến $2n-1$ của $M$ vào ma trận $A^{-1}$
+    \State \Return $A^{-1}$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\subsection*{1.3.3. Xác định Hạng và Cơ sở}
+\phantomsection
+\addcontentsline{toc}{subsection}{1.3.3. Xác định Hạng và Cơ sở}
+% \begin{lstlisting}[style=numbered, language=Python]
+% # Dán code hàm rank_and_basis(A)
+% def rank_and_basis(A):
+%     """
+%     Tính hạng và cơ sở của ba không gian con của ma trận A:
+%     - Không gian cột  C(A): sinh bởi các cột pivot của A gốc.
+%     - Không gian dòng R(A): sinh bởi các dòng khác 0 trong REF.
+%     - Không gian nghiệm N(A): tập nghiệm của Ax = 0.
+
+%     Parameters:
+%     - A: Ma trận (list of lists), kích thước m x n.
+
+%     Returns:
+%     - rank      : Hạng của A (int).
+%     - col_basis : Cơ sở không gian cột (list of lists).
+%     - row_basis : Cơ sở không gian dòng (list of lists).
+%     - null_basis: Cơ sở không gian nghiệm (list of lists).
+%                   Rỗng nếu A có hạng đầy đủ theo cột.
+%     """
+%     m, n = len(A), len(A[0])
+%     eps  = 1e-12
+
+%     # Bước 1: Đưa A về dạng REF
+%     # verbose=False: tránh in nghiệm khi gọi nội bộ
+%     M_aug, _, _ = gaussian_eliminate(A, [0.0] * m, verbose=False)
+%     U = [row[:n] for row in M_aug]  # chỉ lấy phần ma trận, bỏ cột b
+
+%     # Bước 2: Xác định cột pivot và hạng
+%     pivot_cols = []
+%     r = 0
+%     for j in range(n):
+%         if r < m and abs(U[r][j]) > eps:
+%             pivot_cols.append(j)
+%             r += 1
+%     rank = len(pivot_cols)
+
+%     # Bước 3: Cơ sở không gian dòng — các dòng khác 0 của REF
+%     row_basis = [U[i][:] for i in range(rank)]
+
+%     # Bước 4: Cơ sở không gian cột — cột pivot trên ma trận GỐC A
+%     col_basis = [[A[i][j] for i in range(m)] for j in pivot_cols]
+
+%     # Bước 5: Cơ sở không gian nghiệm (Null Space)
+%     # Với mỗi biến tự do free_j: gán x[free_j]=1, biến tự do khác=0,
+%     # rồi thế ngược trên U (b=0) để tìm biến pivot tương ứng.
+%     free_cols  = [j for j in range(n) if j not in pivot_cols]
+%     null_basis = []
+
+%     for fj in free_cols:
+%         x     = [0.0] * n
+%         x[fj] = 1.0
+%         for i in range(rank - 1, -1, -1):
+%             pc    = pivot_cols[i]
+%             val   = sum(U[i][j] * x[j] for j in range(pc + 1, n))
+%             x[pc] = -val / U[i][pc]  # b = 0 nên không có số hạng tự do
+%         null_basis.append(x)
+
+%     return rank, col_basis, row_basis, null_basis
+% \end{lstlisting}
+% --- Vẽ tiêu đề và đường kẻ trên cùng thủ công ---
+
+
+\begin{algorithm}[H]
+\caption{Xác định Hạng và Cơ sở của ma trận}
+\label{alg:rank_and_basis}
+\begin{algorithmic}[1]
+\Procedure{RANK\_AND\_BASIS}{$A$}
+    \State $m, n \gets$ Kích thước của ma trận $A$
+    \State Dung sai $\epsilon \gets 10^{-12}$
+
+    \State \Comment{\textbf{Bước 1: Đưa ma trận $A$ về dạng Bậc thang (REF)}}
+    \State Tạo vector $b\_zero \gets [0.0, 0.0, \dots, 0.0]$ gồm $m$ phần tử
+    \State $(M_{aug}, \_, \_) \gets$ \Call{GAUSSIAN\_ELIMINATE}{$A, b\_zero, \text{False}$}
+    \State Trích xuất ma trận $U$ bằng cách bỏ đi cột cuối cùng ($b$) của $M_{aug}$
+
+    \State \Comment{\textbf{Bước 2: Xác định cột pivot và hạng}}
+    \State Khởi tạo danh sách các cột chốt $pivot\_cols \gets \emptyset$
+    \State $r \gets 0$
+    \For{$j \gets 0$ to $n-1$}
+        \If{$r < m$ \textbf{and} $|U[r][j]| > \epsilon$}
+            \State Thêm $j$ vào $pivot\_cols$
+            \State $r \gets r + 1$
+        \EndIf
+    \EndFor
+    \State $rank \gets |pivot\_cols|$ \Comment{Số lượng cột chốt chính là hạng của ma trận}
+
+    \State \Comment{\textbf{Bước 3: Xác định cơ sở không gian dòng $\mathcal{R}(A)$}}
+    \State $row\_basis \gets$ $rank$ dòng đầu tiên của ma trận $U$
+
+    \State \Comment{\textbf{Bước 4: Xác định cơ sở không gian cột $\mathcal{C}(A)$}}
+    \State $col\_basis \gets$ Lấy các cột từ ma trận \textbf{GỐC} $A$ dựa trên các chỉ số trong $pivot\_cols$
+
+    \State \Comment{\textbf{Bước 5: Xác định cơ sở không gian nghiệm $\mathcal{N}(A)$}}
+    \State Tập các cột tự do $free\_cols \gets \{0, 1, \dots, n-1\} \setminus pivot\_cols$
+    \State Khởi tạo danh sách cơ sở nghiệm $null\_basis \gets \emptyset$
+
+    \For{mỗi chỉ số $f_j \in free\_cols$}
+        \State Khởi tạo vector $x \gets [0.0, \dots, 0.0]$ gồm $n$ phần tử
+        \State $x[f_j] \gets 1.0$ \Comment{Gán giá trị 1 cho biến tự do đang xét}
+        
+        \For{$i \gets rank - 1$ \textbf{downto} $0$}
+            \State $pc \gets pivot\_cols[i]$
+            \State $val \gets \sum_{k = pc+1}^{n-1} (U[i][k] \times x[k])$
+            \State $x[pc] \gets -val / U[i][pc]$ \Comment{Thế ngược với vế phải $b=0$}
+        \EndFor
+        
+        \State Thêm vector $x$ vào $null\_basis$
+    \EndFor
+
+    \State \Return $(rank, col\_basis, row\_basis, null\_basis)$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\subsection*{1.3.4. Kiểm thử với NumPy (Verification)}
+\phantomsection
+\addcontentsline{toc}{subsection}{1.3.4. Kiểm thử với NumPy (Verification)}
+
+\begin{algorithm}[H]
+\caption{Kiểm chứng tính đúng đắn và sai số thuật toán với NumPy}
+\label{alg:verify_solution}
+\begin{algorithmic}[1]
+\Procedure{VERIFY\_SOLUTION}{$A, x, b$}
+    \State In ra màn hình dải phân cách "KIỂM CHỨNG VỚI NUMPY"
+    
+    \State \Comment{\textbf{1. Kiểm tra sai số nghiệm của hệ phương trình $Ax = b$}}
+    \If{$x$ là một vector số thực (nghiệm duy nhất)}
+        \State $residual \gets ||A \times x - b||_2$ \Comment{Tính chuẩn khoảng cách (Norm)}
+        \State In ra "Sai số hệ phương trình: $residual$"
+    \ElsIf{$x$ là một tuple chứa ma trận tham số (vô số nghiệm)}
+        \State $x_{coef}, free\_cols \gets x$
+        \State Trích xuất nghiệm đặc biệt $x_0$ bằng cách cho tất cả các tham số tự do $t_i = 0$
+        \State $residual \gets ||A \times x_0 - b||_2$
+        \State In ra "Sai số nghiệm đặc biệt ($t_i=0$): $residual$"
+    \Else
+        \State In ra thông báo $x$ (Ví dụ: "Hệ phương trình vô nghiệm")
+    \EndIf
+
+    \State \Comment{\textbf{2. Kiểm tra định thức}}
+    \If{Số hàng của $A$ bằng Số cột của $A$}
+        \State $det\_self \gets$ \Call{DETERMINANT}{$A$}
+        \State $det\_np \gets$ \Call{NumPy.det}{$A$}
+        \State In ra so sánh giữa $det\_self$ và $det\_np$
+    \EndIf
+
+    \State \Comment{\textbf{3. Kiểm tra hạng ma trận}}
+    \State $(rank\_self, \_, \_, \_) \gets$ \Call{RANK\_AND\_BASIS}{$A$}
+    \State $rank\_np \gets$ \Call{NumPy.matrix\_rank}{$A$}
+    \State In ra so sánh giữa $rank\_self$ và $rank\_np$
+
+    \State \Comment{\textbf{4. Kiểm tra ma trận nghịch đảo}}
+    \If{Số hàng của $A$ bằng Số cột của $A$ \textbf{and} $|det\_np| > 10^{-12}$}
+        \State $inv\_self\_res \gets$ \Call{INVERSE}{$A$}
+        \If{$inv\_self\_res$ là một ma trận}
+            \State Lấy ma trận nghịch đảo chuẩn $inv\_np \gets$ \Call{NumPy.inv}{$A$}
+            \State $inv\_error \gets ||inv\_self\_res - inv\_np||_F$ \Comment{Tính chuẩn Frobenius}
+            \State In ra "Sai số ma trận nghịch đảo: $inv\_error$"
+        \Else
+            \State In ra thông báo $inv\_self\_res$
+        \EndIf
+    \EndIf
+    
+    \State In ra màn hình dải phân cách kết thúc
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+
+Để chứng minh tính đúng đắn và độ ổn định của các hàm tự cài đặt (from scratch), nhóm đã xây dựng một bộ kịch bản kiểm thử (test cases) toàn diện từ Demo 1 đến Demo 7. Các kết quả đầu ra được đối chiếu trực tiếp với thư viện \texttt{numpy.linalg} thông qua việc đánh giá sai số (Norm error).
+
+\textbf{A. Đánh giá thuật toán giải hệ phương trình tuyến tính}
+
+Nhóm tiến hành thử nghiệm hàm \texttt{gaussian\_eliminate} với 4 trường hợp đặc trưng nhất của hệ phương trình tuyến tính $Ax = b$:
+\begin{itemize}
+    \item \textbf{Hệ có nghiệm duy nhất (Demo 1):} Ma trận hệ số không suy biến. Kết quả thuật toán tự cài cho ra nghiệm chính xác $x = [2.0, 3.0, -1.0]$. Sai số tái tạo $||Ax - b|| = 8.88 \times 10^{-16}$, cho thấy thuật toán Partial Pivoting khử sai số làm tròn cực kỳ hiệu quả.
+    \item \textbf{Hệ vô nghiệm (Demo 4):} Thuật toán bắt thành công trường hợp dòng cuối có dạng $[0 \quad 0 \quad | \quad c]$ với $c \neq 0$ và trả về thông báo lỗi hợp lý.
+    \item \textbf{Hệ vô số nghiệm (Demo 2 \& 3):} hàm  \texttt{back\_substitution} có khả năng tự động nhận diện số lượng biến tự do và xuất ra \textbf{công thức nghiệm tổng quát} dưới dạng vector tham số.
+\end{itemize}
+
+Ví dụ cụ thể tại \textbf{Demo 3} (Hệ suy biến nặng - 2 biến tự do) với ma trận:
+$$
+A = \begin{bmatrix} 1 & 2 & 4 \\ 2 & 4 & 8 \\ 3 & 6 & 12 \end{bmatrix}, \quad 
+b = \begin{bmatrix} 2 \\ 4 \\ 6 \end{bmatrix}
+$$
+Chương trình tự cài đặt đã xuất ra chính xác nghiệm tổng quát dưới dạng vector tham số :
+\begin{lstlisting}[language=bash, numbers=none,escapechar=|]
+--- |Nghiệm tổng quát|---
+x1 = 2 - 2*t1 - 4*t2
+x2 = t1
+x3 = t2
+
+--- |Dạng| vector ---
+x = (2, 0, 0)
+    + t1 * (-2, 1, 0)
+    + t2 * (-4, 0, 1)
+\end{lstlisting}
+Đối chiếu lại bằng NumPy, sai số $||Ax_0 - b|| = 0.00e+00$. Kết quả hoàn hảo.
+
+\subsubsection*{B. Đánh giá tính Định thức và Ma trận nghịch đảo}
+
+Việc tính toán định thức và ma trận nghịch đảo thông qua ma trận tam giác trên (từ phép khử Gauss) cũng cho thấy độ chính xác bám sát các thuật toán tối ưu của NumPy.
+
+\begin{table}[H]
+    \centering
+    \caption{Bảng đối chiếu sai số Định thức và Ma trận nghịch đảo}
+    \vspace{0.2cm}
+    \renewcommand{\arraystretch}{1.3}
+    \resizebox{\textwidth}{!}{ % <--- Lệnh bóp bảng vừa khít trang giấy
+        \begin{tabular}{|l|c|c|c|}
+            \hline
+            \textbf{Trường hợp kiểm thử} & \textbf{Định thức (Tự cài)} & \textbf{Định thức (NumPy)} & \textbf{Sai số nghịch đảo $||A^{-1}_{custom} - A^{-1}_{numpy}||$} \\ \hline
+            Ma trận $A$ ($3 \times 3$) & $-1.0000$ & $-1.0000$ & $4.93 \times 10^{-15}$ \\ \hline
+            Ma trận $A_3$ ($3 \times 3$) & $1.0000$ & $1.0000$ & $1.77 \times 10^{-13}$ \\ \hline
+            Ma trận $B$ ($4 \times 4$) & $50.0000$ & $50.0000$ & $1.11 \times 10^{-16}$ \\ \hline
+            Ma trận suy biến ($A_{sing}$) & $0.0000$ & $0.0000$ & \textit{Bắt lỗi: Không khả nghịch thành công} \\ \hline
+        \end{tabular}
+    } % <--- Đóng ngoặc của \resizebox
+\end{table}
+
+Kết quả từ bảng trên (trích xuất từ \textbf{Demo 5 \& 6}) khẳng định rằng, bằng việc sử dụng kỹ thuật chọn phần tử chốt lớn nhất (Partial Pivoting) để giới hạn các nhân tử $|m_{ij}| \le 1$, nhóm đã kiểm soát thành công sự bùng nổ của sai số dấu phẩy động (Floating-point error) ngay cả với ma trận cấp 4.
+
+\subsubsection*{C. Đánh giá Hạng (Rank) và Cơ sở không gian (Basis)}
+
+Tại \textbf{Demo 7}, hàm \texttt{rank\_and\_basis} được đưa vào thử thách với nhiều dạng ma trận khác nhau: ma trận vuông suy biến ($3 \times 3$), ma trận chữ nhật ($3 \times 4$) và ma trận có hạng bằng 1.
+
+Thuật toán tự cài đặt luôn trả về Hạng ma trận khớp 100\% với hàm \texttt{np.linalg.matrix\_rank}. Đáng chú ý hơn, thuật toán tự trích xuất được các \textbf{Cơ sở không gian dòng}, \textbf{Cơ sở không gian cột} và đặc biệt là \textbf{Cơ sở không gian nghiệm (Null space)}. 
+
+Để xác minh tính đúng đắn của Không gian nghiệm, nhóm đã thực hiện thao tác kiểm chứng nội bộ: Nhân ma trận gốc $A$ với từng vector cơ sở $v$ sinh ra từ Null space. Kết quả in ra log luôn hiển thị:
+\begin{lstlisting}[language=bash, numbers=none]
+[1.0, -2.0, 1.0] -> Av = [0.0, 0.0, 0.0]
+[-1.0, 1.0, 0.0] -> Av = [0.0, 0.0, 0.0]
+\end{lstlisting}
+Việc $A \times v = 0$ là minh chứng toán học tuyệt đối cho thấy tập vector sinh ra thực sự tạo thành Không gian Null (Không gian rỗng) của ma trận $A$.
+
+\textbf{Kết luận Phần 1:} Thông qua 7 hạng mục kiểm thử, thư viện đại số tuyến tính nội bộ do nhóm xây dựng dựa trên phép khử Gauss hoạt động cực kỳ ổn định, bắt lỗi tốt các trường hợp ngoại lệ và đạt độ chính xác tương đương với thư viện công nghiệp NumPy.

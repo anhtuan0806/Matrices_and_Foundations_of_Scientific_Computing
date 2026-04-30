@@ -1,0 +1,135 @@
+\usepackage[left=1.50cm, right=2.00cm, top=2.00cm, bottom=2.5cm, includehead, includefoot, headheight=45pt]{geometry}
+\usepackage{mathpazo}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{fontspec}
+\usepackage{tabularx}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{setspace}
+\usepackage{amsmath, amssymb, amsfonts}
+\usepackage{array}
+\usepackage{hhline}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+%---header
+\usepackage{fancyhdr}
+\fancyhf{} % Xóa định dạng mặc định
+
+% Cấu hình Header (Trên)
+\fancyhead[L]{%
+    \begin{minipage}[b]{0.12\textwidth}
+        \includegraphics[height=1.2cm]{images/logo-hcmus.png} 
+    \end{minipage}%
+    \begin{minipage}[b]{0.88\textwidth}
+        \large Trường ĐH Khoa học Tự nhiên - ĐHQG HCM \\
+        Khoa Công Nghệ Thông Tin
+    \end{minipage}\vspace{-0.5cm}
+}
+
+% Cấu hình Footer (Dưới)
+\fancyfoot[L]{Đồ án 1 | Ma trận và Tính toán Khoa học}
+\fancyfoot[R]{Trang \thepage}
+
+% Độ dày của đường gạch ngang
+\renewcommand{\headrulewidth}{0.5pt} 
+\renewcommand{\footrulewidth}{0.5pt} 
+
+\setlength{\headheight}{45pt} % Tránh cảnh báo của hệ thống
+
+% Ép các trang bắt đầu Chapter (Part) vẫn hiện Header/Footer
+\makeatletter
+\let\ps@plain\ps@fancy
+\makeatother
+
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows}
+\usepackage{tocloft}
+\usepackage{multirow}
+\usepackage{multicol}
+\usepackage{colortbl}
+\usepackage{longtable}
+\usepackage{fancybox}
+\usepackage{etoolbox}
+% \usepackage{xeCJK} % nếu cần tiếng Việt/tiếng Á
+
+\usepackage{xurl}
+\usepackage[hidelinks]{hyperref}
+
+% --- Cấu hình Font chữ (Bắt buộc dùng XeLaTeX) ---
+\setmonofont{Courier New} % Giúp code hiển thị đúng tiếng Việt
+\setmainfont{Times New Roman} 
+
+% --- Cấu hình Trích dẫn và Liên kết ---
+\usepackage[backend=biber, style=ieee]{biblatex}
+\addbibresource{references.bib}
+\definecolor{fitblue}{RGB}{0, 80, 150}
+\hypersetup{colorlinks=true, citecolor=blue, urlcolor=fitblue}
+
+\makeatletter
+\renewcommand{\@cite}[2]{\textcolor{blue}{[#1\if@tempswa , #2\fi]}}
+\makeatother
+
+% --- Cấu hình hiển thị Code (Python) ---
+\usepackage{listings}
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+
+\lstset{ 
+    frame=single, 
+    language=Python, 
+    aboveskip=3mm, 
+    belowskip=3mm, 
+    showstringspaces=false, 
+    columns=flexible, 
+    basicstyle={\normalsize\ttfamily}, 
+    numbers=none, 
+    keywordstyle=\color{blue}, 
+    commentstyle=\color{dkgreen}, 
+    stringstyle=\color{mauve}, 
+    breaklines=true, 
+    breakatwhitespace=true, 
+    tabsize=3,
+    backgroundcolor=\color{gray!10}, 
+    rulecolor=\color{gray!90}
+} 
+
+\lstdefinestyle{numbered}{ 
+    numbers=left, 
+    numberstyle=\small\color{gray}, 
+    numbersep=5pt, 
+    frame=single, 
+    framexleftmargin=15pt, 
+    xleftmargin=15pt, 
+    language=Python, 
+    basicstyle={\normalsize\ttfamily},
+    keywordstyle=\color{blue}, 
+    commentstyle=\color{dkgreen}, 
+    stringstyle=\color{mauve}, 
+    breaklines=true, 
+    tabsize=3
+}
+
+% --- Việt hóa các tiêu đề ---
+\renewcommand{\figurename}{Hình}
+\renewcommand{\tablename}{Bảng}
+\renewcommand{\contentsname}{MỤC LỤC}
+
+% --- Cấu hình Mục lục ---
+\renewcommand{\cfttoctitlefont}{\LARGE\bfseries}
+\setlength{\cftbeforetoctitleskip}{0pt}
+\setlength{\cftaftertoctitleskip}{0pt}
+
+% --- Định nghĩa kiểu cột tùy chỉnh ---
+\newcolumntype{L}[1]{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{C}[1]{>{\centering\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{R}[1]{>{\raggedleft\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+
+\setlength{\parskip}{0.8em}
+
+% --- Cấu hình Tiêu đề ---
+\usepackage{titlesec}
+\titleformat{\chapter}[hang]{\normalfont\LARGE\bfseries}{\thechapter}{1em}{}
+\titlespacing*{\chapter}{0pt}{-10pt}{20pt} % Chỉnh khoảng cách trên/dưới tiêu đề

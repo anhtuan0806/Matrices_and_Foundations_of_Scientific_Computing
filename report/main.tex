@@ -1,0 +1,40 @@
+\documentclass[12pt,a4paper]{report}
+
+% 1. Gọi file cấu hình
+\input{preamble}
+
+\begin{document}
+
+% 2. Trang bìa
+\input{sections/cover}
+
+% 3. Cấu hình số trang và Mục lục
+\newpage
+\pagestyle{fancy}
+\pagenumbering{arabic}
+\setcounter{page}{1}
+\renewcommand{\contentsname}{}        % Xóa chữ "Mục lục" mặc định
+\renewcommand{\listtablename}{}       
+\renewcommand{\listfigurename}{}      
+
+\chapter*{\centering{MỤC LỤC}}
+\phantomsection
+\addcontentsline{toc}{chapter}{\textcolor{fitblue}{MỤC LỤC}}
+{\setstretch{1.2}
+\tableofcontents
+\newpage
+\newpage
+}
+
+%  % 4. Các  nội dung chính
+\input{sections/assignment}
+\input{sections/part1}
+\input{sections/part2}
+\input{sections/part3}
+\input{sections/conclusion}
+\input{sections/references}
+\input{sections/appendix}
+
+
+
+\end{document}

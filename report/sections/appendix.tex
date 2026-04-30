@@ -1,0 +1,44 @@
+\newpage
+% --- CHƯƠNG PHỤ LỤC DUY NHẤT ---
+\setcounter{chapter}{4} % Giữ chapter counter để đồng bộ hệ thống nếu cần
+\chapter*{\centering{\MakeUppercase{Phụ lục}}}
+\phantomsection
+\addcontentsline{toc}{chapter}{\textcolor{fitblue}{PHỤ LỤC}}
+
+% --- MỤC: DANH MỤC HÌNH ẢNH ---
+\section*{Danh mục Hình ảnh}
+\phantomsection
+\addcontentsline{toc}{section}{Danh mục Hình ảnh}
+\makeatletter
+\vspace{-0.5cm} 
+\@starttoc{lof}
+\makeatother
+
+% --- MỤC: DANH MỤC BẢNG BIỂU ---
+\section*{Danh mục Bảng biểu}
+\phantomsection
+\addcontentsline{toc}{section}{Danh mục Bảng biểu}
+\makeatletter
+\vspace{-0.5cm}
+\@starttoc{lot}
+\makeatother
+
+% --- MỤC: DANH MỤC MÃ GIẢ ---
+\section*{Danh mục Mã giả}
+\phantomsection
+\addcontentsline{toc}{section}{Danh mục Mã giả}
+\makeatletter
+\providecommand*{\l@algorithm}{\@dottedtocline{1}{1.5em}{2.3em}}
+\vspace{-0.5cm}
+\@starttoc{loa}
+\makeatother
+
+% --- MỤC: TÀI NGUYÊN VÀ ĐƯỜNG DẪN ---
+\section*{Tài nguyên và Đường dẫn}
+\phantomsection
+\addcontentsline{toc}{section}{Tài nguyên và Đường dẫn}
+
+\begin{itemize}
+    \item \textbf{Video Demo (Manim):} \url{https://drive.google.com/file/d/1I-pOLFwKOWMM5jLq7blxnKZRxq0EeHbf/view?usp=sharing}
+    \item \textbf{Kho lưu trữ GitHub:} \url{https://github.com/anhtuan0806/Matrices_and_Foundations_of_Scientific_Computing}
+\end{itemize}
