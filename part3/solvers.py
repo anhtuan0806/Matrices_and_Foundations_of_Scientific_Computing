@@ -1,7 +1,16 @@
 import math
+import sys
+import os
 from typing import List, Any
+
+# Thêm thư mục gốc vào sys.path để có thể import part1, part2
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(current_dir, '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 from part1.gaussian import perform_gaussian_elimination, EPSILON
-from part2.decomposition import perform_qr_decomposition, transpose_matrix, calculate_vector_norm
+from part2.decomposition import perform_qr_decomposition, get_matrix_transpose, calculate_vector_norm
 
 def calculate_residual_error(matrix_A: List[List[float]], solution_x: List[float], vector_b: List[float]) -> float:
     """
@@ -45,7 +54,7 @@ def solve_system_via_qr(matrix_A: List[List[float]], vector_b: List[float]) -> L
     number_of_vars = len(matrix_A[0])
     
     # Tính y = Q^T * b
-    matrix_QT = transpose_matrix(matrix_Q)
+    matrix_QT = get_matrix_transpose(matrix_Q)
     vector_y = [sum(matrix_QT[row_index][k_index] * vector_b[k_index] for k_index in range(len(vector_b))) 
                 for row_index in range(number_of_vars)]
     
@@ -101,4 +110,4 @@ def solve_system_via_gauss_seidel(matrix_A: List[List[float]], vector_b: List[fl
         if max_absolute_change < tolerance:
             break
             
-    return solution_x
+    return solution_x
