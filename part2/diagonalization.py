@@ -1,6 +1,9 @@
-from decomposition import perform_qr_decomposition, perform_matrix_multiplication, create_zero_matrix, get_matrix_dimensions, display_matrix, EPSILON
+from decomposition import (
+    perform_qr_decomposition, perform_matrix_multiplication, create_zero_matrix, 
+    get_matrix_dimensions, display_matrix, EPSILON, subtract_matrices, 
+    calculate_frobenius_norm, invert_matrix
+)
 from typing import List, Tuple, Any
-import numpy as np
 import random
 
 def create_identity_matrix(size_dim: int) -> List[List[float]]:
@@ -63,7 +66,7 @@ def perform_matrix_diagonalization(matrix_A: List[List[float]], max_iterations: 
     return matrix_D, matrix_P
 
 def run_diagonalization_test(case_name: str, matrix_data: List[List[float]]) -> None:
-    """Kiểm thử và so sánh kết quả chéo hóa với ma trận gốc."""
+    """Kiểm thử và so sánh kết quả chéo hóa với ma trận gốc (Pure Python)."""
     print("=" * 80)
     print(f" TEST CASE: {case_name}")
     print("=" * 80)
@@ -74,23 +77,28 @@ def run_diagonalization_test(case_name: str, matrix_data: List[List[float]]) -> 
         display_matrix("Ma trận đường chéo D (Custom)", matrix_D)
         
         # Kiểm chứng tính đúng đắn bằng cách tái cấu trúc A = P * D * P^-1
-        # Sử dụng NumPy chỉ cho mục đích kiểm tra (verification)
-        matrix_P_np = np.array(matrix_P, dtype=float)
-        matrix_D_np = np.array(matrix_D, dtype=float)
-        
         try:
-            matrix_P_inv_np = np.linalg.inv(matrix_P_np)
-            matrix_A_reconstructed = matrix_P_np @ matrix_D_np @ matrix_P_inv_np
+            # 1. Tính P^-1
+            matrix_P_inv = invert_matrix(matrix_P)
             
-            reconstruction_error = np.linalg.norm(np.array(matrix_data) - matrix_A_reconstructed)
+            # 2. Tính P * D * P^-1
+            PD = perform_matrix_multiplication(matrix_P, matrix_D)
+            matrix_A_reconstructed = perform_matrix_multiplication(PD, matrix_P_inv)
+            
+            # 3. Tính sai số tái cấu trúc: ||A - PDP^-1||
+            diff = subtract_matrices(matrix_data, matrix_A_reconstructed)
+            reconstruction_error = calculate_frobenius_norm(diff)
+            
             print(f"=> Sai số tái cấu trúc ||A - PDP^-1||: {reconstruction_error:.2e}")
             
             if reconstruction_error < 1e-7:
                 print("=> ĐÁNH GIÁ: CHÉO HÓA THÀNH CÔNG")
             else:
                 print("=> ĐÁNH GIÁ: CHÉO HÓA CÓ SAI SỐ (Ma trận có thể không chéo hóa được)")
-        except np.linalg.LinAlgError:
-            print("=> Cảnh báo: Ma trận P không khả nghịch, không thể kiểm chứng bằng tái cấu trúc.")
+                
+        except ValueError as error_msg:
+            # Thông thường là do ma trận P không khả nghịch (suy biến)
+            print(f"=> Cảnh báo: Không thể kiểm chứng bằng tái cấu trúc: {error_msg}")
             
     except Exception as error_msg:
         print(f"-> LỖI: {error_msg}")

@@ -40,6 +40,72 @@ def perform_matrix_multiplication(matrix_A: List[List[float]], matrix_B: List[Li
             result_matrix[row_index][col_index] = dot_product_val
     return result_matrix
 
+def subtract_matrices(matrix_A: List[List[float]], matrix_B: List[List[float]]) -> List[List[float]]:
+    """Tính hiệu của hai ma trận cùng kích thước: A - B."""
+    rows_A, cols_A = get_matrix_dimensions(matrix_A)
+    rows_B, cols_B = get_matrix_dimensions(matrix_B)
+    if rows_A != rows_B or cols_A != cols_B:
+        raise ValueError("Kích thước ma trận không tương thích để thực hiện phép trừ!")
+    
+    result = create_zero_matrix(rows_A, cols_A)
+    for row_idx in range(rows_A):
+        for col_idx in range(cols_A):
+            result[row_idx][col_idx] = matrix_A[row_idx][col_idx] - matrix_B[row_idx][col_idx]
+    return result
+
+def calculate_frobenius_norm(matrix_input: List[List[float]]) -> float:
+    """Tính chuẩn Frobenius của ma trận (căn bậc hai của tổng bình phương các phần tử)."""
+    sum_squares = 0.0
+    for row in matrix_input:
+        for val in row:
+            sum_squares += val ** 2
+    return math.sqrt(sum_squares)
+
+def invert_matrix(matrix_input: List[List[float]]) -> List[List[float]]:
+    """
+    Nghịch đảo ma trận vuông bằng phương pháp khử Gauss-Jordan.
+    Ném ra ValueError nếu ma trận suy biến.
+    """
+    rows_count, cols_count = get_matrix_dimensions(matrix_input)
+    if rows_count != cols_count:
+        raise ValueError("Chỉ ma trận vuông mới có thể nghịch đảo!")
+    
+    n = rows_count
+    # Tạo ma trận bổ sung [A | I]
+    augmented_matrix = [row[:] + [1.0 if idx == row_idx else 0.0 for idx in range(n)] for row_idx, row in enumerate(matrix_input)]
+    
+    for pivot_idx in range(n):
+        # Tìm dòng có phần tử pivot lớn nhất để đảm bảo tính ổn định số học
+        max_row_idx = pivot_idx
+        max_val = abs(augmented_matrix[pivot_idx][pivot_idx])
+        for row_idx in range(pivot_idx + 1, n):
+            if abs(augmented_matrix[row_idx][pivot_idx]) > max_val:
+                max_val = abs(augmented_matrix[row_idx][pivot_idx])
+                max_row_idx = row_idx
+        
+        # Kiểm tra ma trận suy biến
+        if max_val < EPSILON:
+            raise ValueError("Ma trận suy biến, không thể nghịch đảo!")
+            
+        # Hoán vị dòng
+        augmented_matrix[pivot_idx], augmented_matrix[max_row_idx] = augmented_matrix[max_row_idx], augmented_matrix[pivot_idx]
+        
+        # Chuẩn hóa dòng pivot
+        pivot_val = augmented_matrix[pivot_idx][pivot_idx]
+        for col_idx in range(pivot_idx, 2 * n):
+            augmented_matrix[pivot_idx][col_idx] /= pivot_val
+            
+        # Khử các dòng khác
+        for row_idx in range(n):
+            if row_idx != pivot_idx:
+                factor = augmented_matrix[row_idx][pivot_idx]
+                for col_idx in range(pivot_idx, 2 * n):
+                    augmented_matrix[row_idx][col_idx] -= factor * augmented_matrix[pivot_idx][col_idx]
+                    
+    # Trích xuất ma trận nghịch đảo từ ma trận bổ sung
+    inverse_matrix = [row[n:] for row in augmented_matrix]
+    return inverse_matrix
+
 def get_matrix_transpose(matrix_input: List[List[float]]) -> List[List[float]]:
     """Trả về ma trận chuyển vị."""
     rows_count, cols_count = get_matrix_dimensions(matrix_input)
@@ -98,29 +164,18 @@ def perform_qr_decomposition(matrix_A: List[List[float]]) -> Tuple[List[List[flo
 # ==========================================
 
 if __name__ == "__main__":
-    import numpy as np
-    
     print("="*80)
-    print("KIỂM THỬ TÍNH CHẤT MA TRẬN, SO SÁNH VỚI NUMPY & ĐÁNH GIÁ SAI SỐ")
+    print("KIỂM THỬ TÍNH CHẤT MA TRẬN VÀ ĐÁNH GIÁ SAI SỐ (PURE PYTHON)")
     print("="*80)
 
-    def verify_with_numpy(Q_custom, R_custom, Q_np, R_np):
-        """Đo độ lệch giữa code tự cài và NumPy."""
-        Q_c = np.abs(np.array(Q_custom, dtype=float))
-        R_c = np.abs(np.array(R_custom, dtype=float))
-        Q_n = np.abs(Q_np)
-        R_n = np.abs(R_np)
-        
-        difference_Q = np.linalg.norm(Q_c - Q_n, ord='fro')
-        difference_R = np.linalg.norm(R_c - R_n, ord='fro')
-        return difference_Q, difference_R
-
-    def check_orthogonality_error(Q_custom):
-        """Kiểm tra sai số mất tính trực giao: ||Q^T * Q - I||_F"""
-        Q_np = np.array(Q_custom, dtype=float)
-        num_cols = Q_np.shape[1]
-        identity_np = np.eye(num_cols)
-        return np.linalg.norm(Q_np.T @ Q_np - identity_np, ord='fro')
+    def calculate_orthogonality_error(matrix_Q: List[List[float]]) -> float:
+        """Kiểm tra sai số trực giao: ||Q^T * Q - I||_F"""
+        rows, cols = get_matrix_dimensions(matrix_Q)
+        QT = get_matrix_transpose(matrix_Q)
+        QTQ = perform_matrix_multiplication(QT, matrix_Q)
+        identity = [[1.0 if idx == row_idx else 0.0 for idx in range(cols)] for row_idx in range(cols)]
+        diff = subtract_matrices(QTQ, identity)
+        return calculate_frobenius_norm(diff)
 
     def test_and_evaluate_qr(test_name: str, matrix_data: List[List[float]]):
         print(f"\n{'-'*80}")
@@ -128,32 +183,30 @@ if __name__ == "__main__":
         print(f"{'-'*80}")
         display_matrix("Ma trận A", matrix_data)
         
-        # 1. Chạy code tự cài
         try:
+            # 1. Chạy phân rã QR
             Q_custom, R_custom = perform_qr_decomposition(matrix_data)
+            
+            # 2. Đánh giá sai số
+            # Sai số tái tạo: ||A - QR||
+            QR = perform_matrix_multiplication(Q_custom, R_custom)
+            diff_reconstruction = subtract_matrices(matrix_data, QR)
+            reconstruction_error = calculate_frobenius_norm(diff_reconstruction)
+            
+            # Sai số trực giao: ||Q^T Q - I||
+            orthogonality_error = calculate_orthogonality_error(Q_custom)
+            
+            print(f">>> ĐÁNH GIÁ SAI SỐ (PURE PYTHON):")
+            print(f"    - Sai số trực giao ||Q^T Q - I|| : {orthogonality_error:.5e}")
+            print(f"    - Sai số tái tạo ||A - QR||      : {reconstruction_error:.5e}")
+            
+            if reconstruction_error < 1e-9:
+                print(">>> KẾT LUẬN: Phân rã QR THÀNH CÔNG")
+            else:
+                print(">>> KẾT LUẬN: Phân rã QR CÓ SAI SỐ LỚN")
+                
         except Exception as error_msg:
-            print(f"Thuật toán tự cài gặp lỗi: {error_msg}")
-            return
-        
-        # 2. Chạy bằng NumPy để đối chứng
-        matrix_np = np.array(matrix_data, dtype=float)
-        Q_np, R_np = np.linalg.qr(matrix_np)
-        
-        # 3. So sánh và đánh giá
-        diff_Q, diff_R = verify_with_numpy(Q_custom, R_custom, Q_np, R_np)
-        orthogonality_error = check_orthogonality_error(Q_custom)
-        reconstruction_error = np.linalg.norm(matrix_np - np.array(Q_custom) @ np.array(R_custom), ord='fro')
-        
-        print(f">>> ĐÁNH GIÁ SAI SỐ THUẬT TOÁN TỰ CÀI (MGS):")
-        print(f"    - Lệch ma trận Q so với NumPy   : {diff_Q:.5e}")
-        print(f"    - Lệch ma trận R so với NumPy   : {diff_R:.5e}")
-        print(f"    - Sai số trực giao ||Q^T Q - I|| : {orthogonality_error:.5e}")
-        print(f"    - Sai số tái tạo A ≈ QR        : {reconstruction_error:.5e}")
-        
-        if reconstruction_error < 1e-9:
-            print(">>> KẾT LUẬN: Phân rã QR THÀNH CÔNG")
-        else:
-            print(">>> KẾT LUẬN: Phân rã QR CÓ SAI SỐ LỚN")
+            print(f"LỖI trong quá trình kiểm thử: {error_msg}")
 
     # Demo nhanh một trường hợp
     matrix_example = [[1, 2], [3, 4], [5, 6]]

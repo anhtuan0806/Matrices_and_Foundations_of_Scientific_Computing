@@ -1,8 +1,14 @@
 from manim import *
 import math
-import numpy as np
 from typing import Union, List, Dict, Optional, Any, Tuple
 import re
+
+from decomposition import (
+    calculate_dot_product, calculate_vector_norm, perform_matrix_multiplication,
+    get_matrix_dimensions, create_zero_matrix, extract_matrix_column,
+    perform_qr_decomposition
+)
+from diagonalization import perform_matrix_diagonalization
 
 # ==============================================================================
 # CẤU HÌNH: Các hằng số, màu sắc, thời gian và thiết lập camera
@@ -89,19 +95,12 @@ CONFIG = {
 # CÁC HÀM TRỢ GIÚP ĐẠI SỐ TUYẾN TÍNH SỬ DỤNG PYTHON THUẦN TÚY
 # ==============================================================================
 
-def calculate_dot_product(vector_a: list, vector_b: list) -> float:
-    """
-    Cung cấp giá trị định lượng cho các phép toán hình chiếu và kiểm tra 
-    mức độ trực giao giữa hai thành phần không gian.
-    """
-    return sum(val_a * val_b for val_a, val_b in zip(vector_a, vector_b))
-
 def calculate_euclidean_norm(vector_v: list) -> float:
     """
     Xác định độ dài hình học của vector để phục vụ việc chuẩn hóa 
     các hướng về kích thước đơn vị.
     """
-    return math.sqrt(calculate_dot_product(vector_v, vector_v))
+    return calculate_vector_norm(vector_v)
 
 def multiply_vector_by_scalar(scalar_c: float, vector_v: list) -> list:
     """
@@ -160,12 +159,7 @@ def multiply_matrices_3x3(matrix_a: list, matrix_b: list) -> list:
     Thực hiện phép nhân ma trận để kiểm chứng tính đúng đắn 
     của các kết quả phân rã QR hoặc chéo hóa PDP^-1.
     """
-    result_matrix = [[0.0] * 3 for _ in range(3)]
-    for idx_row in range(3):
-        for idx_col in range(3):
-            for idx_inner in range(3):
-                result_matrix[idx_row][idx_col] += matrix_a[idx_row][idx_inner] * matrix_b[idx_inner][idx_col]
-    return result_matrix
+    return perform_matrix_multiplication(matrix_a, matrix_b)
 
 def calculate_determinant_3x3(matrix_a: list) -> float:
     """
@@ -252,7 +246,7 @@ class SubtitleManager:
 def create_billboard_3d_label(
     scene: ThreeDScene, 
     tex_string: str, 
-    position: np.ndarray, 
+    position: list, 
     color: Union[str, Any] = WHITE, 
     font_size: int = None
 ) -> MathTex:
@@ -289,8 +283,8 @@ def create_billboard_3d_label(
     return label_object
 
 def create_grow_arrow_animation(
-    start_point: np.ndarray, 
-    end_point: np.ndarray, 
+    start_point: list, 
+    end_point: list, 
     color: Union[str, Any] = WHITE
 ) -> tuple:
     """
@@ -413,7 +407,7 @@ class MatrixProjectScene(ThreeDScene):
     def create_billboard_label(
         self, 
         tex_string: str, 
-        position: np.ndarray, 
+        position: list, 
         color: Union[str, Any] = WHITE, 
         font_size: int = None
     ) -> VGroup:
@@ -630,16 +624,43 @@ class QRAndDiagonalization(MatrixProjectScene):
     bao gồm phân rã QR và chéo hóa PDP^-1.
     """
 
-    # ---- Dữ liệu ma trận mặc định ----
+    # ---- Dữ liệu ma trận mặc định (có thể thay đổi để video cập nhật động) ----
     MATRIX_A_ROWS = [[2, 1, 1], [1, 2, 1], [1, 1, 2]]
-    COORD_ORIGINAL_COL_1 = [2, 1, 1]
-    COORD_ORIGINAL_COL_2 = [1, 2, 1]
-    COORD_ORIGINAL_COL_3 = [1, 1, 2]
-    EIGENVALUE_LAMBDA_1 = 4
-    EIGENVALUE_LAMBDA_23 = 1
-    COORD_EIGENVEC_1 = [1, 1, 1]
-    COORD_EIGENVEC_2 = [-1, 1, 0]
-    COORD_EIGENVEC_3 = [-1, 0, 1]
+
+    def setup(self) -> None:
+        """
+        Thiết lập môi trường và tính toán các thành phần toán học 
+        dựa trên ma trận MATRIX_A_ROWS bằng cách gọi các hàm từ thư viện tự viết.
+        """
+        super().setup()
+        
+        # 1. Trích xuất các cột của ma trận A
+        self.COORD_ORIGINAL_COL_1 = extract_matrix_column(self.MATRIX_A_ROWS, 0)
+        self.COORD_ORIGINAL_COL_2 = extract_matrix_column(self.MATRIX_A_ROWS, 1)
+        self.COORD_ORIGINAL_COL_3 = extract_matrix_column(self.MATRIX_A_ROWS, 2)
+        
+        # 2. Thực hiện phân rã QR
+        self.matrix_Q, self.matrix_R = perform_qr_decomposition(self.MATRIX_A_ROWS)
+        self.COORD_Q_COL_1 = extract_matrix_column(self.matrix_Q, 0)
+        self.COORD_Q_COL_2 = extract_matrix_column(self.matrix_Q, 1)
+        self.COORD_Q_COL_3 = extract_matrix_column(self.matrix_Q, 2)
+        
+        # 3. Thực hiện chéo hóa ma trận (Diagonalization)
+        # Hàm trả về D (ma trận đường chéo) và P (ma trận vector riêng)
+        self.matrix_D, self.matrix_P = perform_matrix_diagonalization(self.MATRIX_A_ROWS)
+        
+        # 4. Trích xuất trị riêng (Eigenvalues) từ đường chéo của D
+        self.EIGENVALUE_LAMBDA_1 = self.matrix_D[0][0]
+        self.EIGENVALUE_LAMBDA_2 = self.matrix_D[1][1]
+        self.EIGENVALUE_LAMBDA_3 = self.matrix_D[2][2]
+        
+        # Đặt giá trị lambda_23 cho các scene cũ (nếu còn dùng)
+        self.EIGENVALUE_LAMBDA_23 = self.EIGENVALUE_LAMBDA_2 
+        
+        # 5. Trích xuất vector riêng (Eigenvectors) từ các cột của P
+        self.COORD_EIGENVEC_1 = extract_matrix_column(self.matrix_P, 0)
+        self.COORD_EIGENVEC_2 = extract_matrix_column(self.matrix_P, 1)
+        self.COORD_EIGENVEC_3 = extract_matrix_column(self.matrix_P, 2)
     def calculate_dynamic_axes_spec(self, list_vectors: list, min_range: float = None) -> dict:
         """
         Tính toán phạm vi đối xứng của các trục tọa độ từ các vector dữ liệu để tránh bị cắt.
@@ -665,7 +686,7 @@ class QRAndDiagonalization(MatrixProjectScene):
         tex_string: str, 
         arrow_mobject: Arrow3D, 
         color: Union[str, Any] = WHITE, 
-        offset_vector: np.ndarray = OUT * 0.25, 
+        offset_vector: list = OUT * 0.25, 
         font_size: int = None
     ) -> Mobject:
         """
@@ -1741,4 +1762,3 @@ class QRAndDiagonalization(MatrixProjectScene):
             run_time=1.5,
         )
         self.subtitle_manager.remove_subtitle_display()
-
